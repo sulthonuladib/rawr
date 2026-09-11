@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Shared domain Schemas and errors (CmcId, ActiveCoin, CoinUpdated, ...)",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",

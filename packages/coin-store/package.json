@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Drizzle Postgres repositories (active_coins, snapshots, opportunities)",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
@@ -12,6 +18,7 @@
   },
   "dependencies": {
     "@effect/sql-pg": "catalog:",
+    "@rawr/domain": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
