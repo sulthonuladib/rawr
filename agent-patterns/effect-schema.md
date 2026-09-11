@@ -15,12 +15,12 @@ Schema.NonEmptyString; Schema.NumberFromString; Schema.DateTimeUtc
 Schema.Literal("a"); Schema.Literals(["admin", "member"])
 Schema.Struct({ id: Schema.Int, name: Schema.String })
 Schema.Array(Schema.String); Schema.Record({ key: Schema.String, value: Schema.Number })
-Schema.Union(Schema.String, Schema.Number); Schema.NullOr(Schema.String)
+Schema.Union([Schema.String, Schema.Number]); Schema.NullOr(Schema.String)
 Schema.optional(Schema.String) // field: string | undefined
 Schema.optionalKey(Schema.String) // key may be absent
 ```
 
-Model: `Schema.Class` (see example below). Union of models: `Schema.TaggedClass` + `Schema.Union`.
+Model: `Schema.Class` (see example below). Union of models: `Schema.TaggedClass` + `Schema.Union([...])` (array arg in v4 RC).
 
 ## Decode / encode (edges only)
 

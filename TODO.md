@@ -12,7 +12,8 @@
 
 - [x] Scaffold pnpm-workspace + TS7 + Effect RC + Drizzle (`@effect-infra` — done by main session)
 - [ ] Vendor repos/effect subtree + pattern file (`@effect-scout`)
-- [ ] Domain + coin-store + messaging (`@effect-domain`)
+- [x] Domain `@rawr/domain` (this session — `pnpm check` + runtime smoke green, NOT committed)
+- [ ] coin-store + messaging (`@effect-domain`)
 - [ ] coin-admin-api + ingest-sender FiberMap (`@effect-service`)
 - [ ] receiver + arbitrage-engine (`@effect-service`)
 - [ ] ticker-cache + monitor + gate-proxy (`@effect-service`)
@@ -22,3 +23,4 @@
 
 - 2026-09-11: plan mode recon complete, build mode entered, git init done.
 - 2026-09-11: Phase 0 foundation scaffolded — catalog pins (effect 4.0.0-rc.113, TS 7.0.2, drizzle-orm 0.45.2/kit 0.31.10, platform-node/-shared + sql-pg rc.113), `pnpm i/check/test/build` + `compose config` green. No commit per instructions.
+- 2026-09-11: `packages/domain` implemented (brands, 15-exchange union, ActiveCoin, CoinStatus, OrderbookTick, Opportunity, CoinUpdated, 3 TaggedErrors; `check` + runtime smoke green). No commit per instructions.
