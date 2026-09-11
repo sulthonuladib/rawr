@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Typed environment and service configuration (Schema-validated, Redacted secrets)",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",

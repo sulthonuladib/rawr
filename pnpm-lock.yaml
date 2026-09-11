@@ -359,6 +359,15 @@ importers:
 
   packages/messaging:
     dependencies:
+      '@rawr/config':
+        specifier: workspace:*
+        version: link:../config
+      '@rawr/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@rawr/observability':
+        specifier: workspace:*
+        version: link:../observability
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.113

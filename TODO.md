@@ -14,7 +14,7 @@
 - [ ] Vendor repos/effect subtree + pattern file (`@effect-scout`)
 - [x] Domain `@rawr/domain` (this session — `pnpm check` + runtime smoke green, NOT committed)
 - [x] coin-store (`@effect-domain` — this session, `check` + smoke green, NOT committed)
-- [ ] messaging (`@effect-domain`)
+- [x] messaging (`@effect-domain` — this session, `check` + smoke green, NOT committed)
 - [ ] coin-admin-api + ingest-sender FiberMap (`@effect-service`)
 - [ ] receiver + arbitrage-engine (`@effect-service`)
 - [ ] ticker-cache + monitor + gate-proxy (`@effect-service`)
@@ -26,3 +26,4 @@
 - 2026-09-11: Phase 0 foundation scaffolded — catalog pins (effect 4.0.0-rc.113, TS 7.0.2, drizzle-orm 0.45.2/kit 0.31.10, platform-node/-shared + sql-pg rc.113), `pnpm i/check/test/build` + `compose config` green. No commit per instructions.
 - 2026-09-11: `packages/domain` implemented (brands, 15-exchange union, ActiveCoin, CoinStatus, OrderbookTick, Opportunity, CoinUpdated, 3 TaggedErrors; `check` + runtime smoke green). No commit per instructions.
 - 2026-09-11: `packages/observability` implemented (LogId UUID brand + Random-v4 makeLogId, CrawlerStatus 5-literal + CrawlerReport, logWith safe-fields, ObserveError; `check` + runtime smoke green). No commit per instructions.
+- 2026-09-11: `packages/messaging` implemented (BusEvent union, Messaging port + layerMemory + layerRabbitMq skeleton over AmqpChannel port, legacy-faithful 17-queue topology + maxLengths, coin-updates queue, reconnect Schedule, loadAmqpUrl from @rawr/config; `check` + 16-assertion smoke green). No commit per instructions.

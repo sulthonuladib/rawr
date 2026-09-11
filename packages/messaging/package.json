@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "description": "CoinUpdated PubSub and RabbitMQ adapter",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
@@ -11,6 +17,9 @@
     "test": "echo \"ok: no tests yet\""
   },
   "dependencies": {
+    "@rawr/config": "workspace:*",
+    "@rawr/domain": "workspace:*",
+    "@rawr/observability": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
