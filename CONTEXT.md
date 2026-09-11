@@ -15,7 +15,8 @@ Last updated: 2026-09-11. Owner: main session. Status: Phase 0 foundation scaffo
 - [x] `git init` in rawr (branch master → rename to main on first commit)
 - [x] Scaffold files: AGENTS/CONTEXT/docs-plan/TODO/.opencode/agents/opencode.json/.vscode
 - [x] pnpm monorepo foundation (this session): `pnpm-workspace.yaml` catalog, root `package.json`, `tsconfig.base.json`, `.node-version`, `drizzle.config.ts`, `infra/compose.yaml` v1, 13 workspace skeletons, `drizzle/schema.ts`, `agent-patterns/` — `pnpm i`, `pnpm check/test/build`, `docker compose config` all green, `tsc` 7.0.2 verified. NOT committed.
-- [ ] Next: repos/effect subtree + agent-patterns/effect-schema.md (`@effect-scout`), then domain + coin-store + messaging (`@effect-domain`)
+- [x] `agent-patterns/effect-schema.md` (84 lines): Schema constructors, decodeUnknown/encode, brand, TaggedError, don'ts — from `repos/effect/.../Schema.ts + ai-docs/02_schema/10_schema-basics.ts + TestSchema.test.ts`. `tsconfig.base.json` check: all 13 `packages/*/apps/*/tsconfig.json` extend it, 0 fixes needed.
+- [ ] Next: domain + coin-store + messaging (`@effect-domain`)
 - [ ] Notes: `@effect/platform@0.97.2` + `@effect/sql@0.52.1` are Effect 3-only (peer `effect@^3.22`, verified via `pnpm view`) — NOT pinned. v4 line pins `@effect/platform-node@4.0.0-rc.113`, `@effect/platform-node-shared@4.0.0-rc.113`, `@effect/sql-pg@4.0.0-rc.113`. TS7 quirk: `esModuleInterop` flag removed in 7.0.2 (dropped from base config). `pnpm approve-builds --all` applied for esbuild (drizzle-kit transitive) so `pnpm run` scripts pass status check.
 
 ## How to continue
