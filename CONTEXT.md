@@ -1,6 +1,6 @@
 # CONTEXT.md — resume point
 
-Last updated: 2026-09-11. Owner: main session. Status: Phase 0 foundation scaffolded, `pnpm i/check/test/build` + `docker compose config` green; `packages/domain` implemented (`pnpm --filter @rawr/domain check` green, NOT committed).
+Last updated: 2026-09-11. Owner: main session. Status: Phase 0 foundation scaffolded, `pnpm i/check/test/build` + `docker compose config` green; `packages/domain` implemented (`pnpm --filter @rawr/domain check` green, NOT committed); `packages/config` implemented (`pnpm --filter @rawr/config check` green + runtime smoke green, NOT committed).
 
 ## What we know
 
@@ -17,6 +17,7 @@ Last updated: 2026-09-11. Owner: main session. Status: Phase 0 foundation scaffo
 - [x] pnpm monorepo foundation (this session): `pnpm-workspace.yaml` catalog, root `package.json`, `tsconfig.base.json`, `.node-version`, `drizzle.config.ts`, `infra/compose.yaml` v1, 13 workspace skeletons, `drizzle/schema.ts`, `agent-patterns/` — `pnpm i`, `pnpm check/test/build`, `docker compose config` all green, `tsc` 7.0.2 verified. NOT committed.
 - [x] `agent-patterns/effect-schema.md` (84 lines): Schema constructors, decodeUnknown/encode, brand, TaggedError, don'ts — from `repos/effect/.../Schema.ts + ai-docs/02_schema/10_schema-basics.ts + TestSchema.test.ts`. `tsconfig.base.json` check: all 13 `packages/*/apps/*/tsconfig.json` extend it, 0 fixes needed.
 - [x] `packages/domain` (this session): `CmcId/Symbol/AlternateSymbol` brands, exact-15 `Exchange` union (`upbitUsdt` camelCase per legacy model), `ActiveCoin` with per-exchange `{enabled, alternate}`, `CoinStatus` tagged union, `OrderbookTick`, `Opportunity`, `CoinUpdated` event, `CoinNotFound|InvalidCoinError|StoreUnavailable` — `check` green + runtime smoke test green. NOT committed.
+- [x] `packages/config` (this session): `Config` (`databaseUrl/redisUrl/amqpUrl/cmcApiKey` as `Redacted`, `potentialHost` default `"localhost"`, `ports` with legacy defaults 4000/4001/3009/5001/10000/42069/5000), `ConfigError` TaggedError, `loadConfig: Effect<Config, ConfigError>` — `check` green + runtime smoke green (defaults, redaction, missing-key + bad-port failures). NOT committed.
 - [ ] Next: coin-store + messaging (`@effect-domain`)
 - [ ] Notes: `@effect/platform@0.97.2` + `@effect/sql@0.52.1` are Effect 3-only (peer `effect@^3.22`, verified via `pnpm view`) — NOT pinned. v4 line pins `@effect/platform-node@4.0.0-rc.113`, `@effect/platform-node-shared@4.0.0-rc.113`, `@effect/sql-pg@4.0.0-rc.113`. TS7 quirk: `esModuleInterop` flag removed in 7.0.2 (dropped from base config). `pnpm approve-builds --all` applied for esbuild (drizzle-kit transitive) so `pnpm run` scripts pass status check.
 
