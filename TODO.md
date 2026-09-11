@@ -4,12 +4,13 @@
 
 - [x] Recon ~/Tools + versions
 - [x] git init rawr
-- [ ] Write AGENTS/CONTEXT/docs/plan/TODO/.opencode/agents (this batch)
+- [x] Write AGENTS/CONTEXT/docs/plan/TODO/.opencode/agents
+- [x] Scaffold pnpm-workspace + TS7 + Effect RC + Drizzle + 13 skeletons + infra compose v1 (main session, NOT committed)
 - [ ] First commit + rename branch to main
 
 ## Next (delegate, one per subagent)
 
-- [ ] Scaffold pnpm-workspace + TS7 + Effect RC + Drizzle (`@effect-infra`)
+- [x] Scaffold pnpm-workspace + TS7 + Effect RC + Drizzle (`@effect-infra` — done by main session)
 - [ ] Vendor repos/effect subtree + pattern file (`@effect-scout`)
 - [ ] Domain + coin-store + messaging (`@effect-domain`)
 - [ ] coin-admin-api + ingest-sender FiberMap (`@effect-service`)
@@ -20,3 +21,4 @@
 ## Done log
 
 - 2026-09-11: plan mode recon complete, build mode entered, git init done.
+- 2026-09-11: Phase 0 foundation scaffolded — catalog pins (effect 4.0.0-rc.113, TS 7.0.2, drizzle-orm 0.45.2/kit 0.31.10, platform-node/-shared + sql-pg rc.113), `pnpm i/check/test/build` + `compose config` green. No commit per instructions.

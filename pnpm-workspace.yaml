@@ -1,0 +1,28 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  esbuild: true
+
+# Pinned versions — exact, no ^ ranges (RC APIs break between RCs).
+# Install with `catalog:` protocol, e.g. `"effect": "catalog:"`.
+catalog:
+  # Effect v4 RC line (verified 2026-09-11 via `pnpm view`).
+  effect: 4.0.0-rc.113
+  # NOTE on @effect/platform + @effect/sql:
+  # There are NO 4.0.0-rc.113 releases for these two packages.
+  # Latest stable is @effect/platform@0.97.2 and @effect/sql@0.52.1,
+  # both with `peerDependencies: { "effect": "^3.22.x" }` (Effect 3-only,
+  # incompatible with effect@4.0.0-rc.113). Do NOT add them alongside effect v4.
+  # The v4-compatible successors, versioned in lockstep with `effect`, are:
+  "@effect/platform-node": 4.0.0-rc.113
+  "@effect/platform-node-shared": 4.0.0-rc.113
+  "@effect/sql-pg": 4.0.0-rc.113
+  # TypeScript native (tsgo) — exact per AGENTS.md.
+  typescript: 7.0.2
+  # Drizzle — exact per AGENTS.md.
+  drizzle-orm: 0.45.2
+  drizzle-kit: 0.31.10
+  # Node types for Node 24 (tooling only: drizzle.config.ts, scripts).
+  "@types/node": 24.13.4

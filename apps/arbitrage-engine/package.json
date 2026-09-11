@@ -1,0 +1,19 @@
+{
+  "name": "@rawr/arbitrage-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Arbitrage engine — Stream join, 2M vol >=0.1% calc, upsert opportunity + WS push",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json",
+    "test": "echo \"ok: no tests yet\""
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

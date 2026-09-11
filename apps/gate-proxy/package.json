@@ -1,0 +1,19 @@
+{
+  "name": "@rawr/gate-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Gate proxy — thin authenticated proxy (replaces legacy gate-proxy)",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json",
+    "test": "echo \"ok: no tests yet\""
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

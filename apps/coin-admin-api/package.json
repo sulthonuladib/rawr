@@ -1,0 +1,19 @@
+{
+  "name": "@rawr/coin-admin-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Coin admin HTTP API (PUT/PATCH /coins/:cmcId -> tx update -> publish CoinUpdated)",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json",
+    "test": "echo \"ok: no tests yet\""
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

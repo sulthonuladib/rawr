@@ -1,0 +1,21 @@
+{
+  "name": "@rawr/coin-store",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drizzle Postgres repositories (active_coins, snapshots, opportunities)",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json",
+    "test": "echo \"ok: no tests yet\""
+  },
+  "dependencies": {
+    "@effect/sql-pg": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

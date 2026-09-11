@@ -1,0 +1,19 @@
+{
+  "name": "@rawr/messaging",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CoinUpdated PubSub and RabbitMQ adapter",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json",
+    "test": "echo \"ok: no tests yet\""
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}
