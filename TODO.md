@@ -24,3 +24,4 @@
 - 2026-09-11: plan mode recon complete, build mode entered, git init done.
 - 2026-09-11: Phase 0 foundation scaffolded — catalog pins (effect 4.0.0-rc.113, TS 7.0.2, drizzle-orm 0.45.2/kit 0.31.10, platform-node/-shared + sql-pg rc.113), `pnpm i/check/test/build` + `compose config` green. No commit per instructions.
 - 2026-09-11: `packages/domain` implemented (brands, 15-exchange union, ActiveCoin, CoinStatus, OrderbookTick, Opportunity, CoinUpdated, 3 TaggedErrors; `check` + runtime smoke green). No commit per instructions.
+- 2026-09-11: `packages/observability` implemented (LogId UUID brand + Random-v4 makeLogId, CrawlerStatus 5-literal + CrawlerReport, logWith safe-fields, ObserveError; `check` + runtime smoke green). No commit per instructions.
