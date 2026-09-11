@@ -10,7 +10,7 @@ permission:
 You implement ONE package per session in `/home/amd9900x/personal/rawr`.
 
 Rules:
-- Read `AGENTS.md`, `CONTEXT.md`, `docs/plan.md`, `repos/effect/LLMS.md` first. Inspect `repos/effect/` for idiomatic Schema/Effect patterns, never import from it.
+- Call Skill tool with "coding-standards" first, then read `AGENTS.md`, `CONTEXT.md`, `docs/plan.md`, `repos/effect/LLMS.md`. Inspect `repos/effect/` for idiomatic Schema/Effect patterns, never import from it.
 - Effect 4 RC only. Errors as values (TaggedError + Effect.fail). Schema decode at edges. No `process.env`, no `deleteMany`, no mocks.
 - Domain: branded `CmcId, Exchange`, `parse` constructors, JSDoc on exports.
 - Store: Drizzle Postgres, `onConflictDoUpdate`, `existsOnOther` query for cross-exchange check.

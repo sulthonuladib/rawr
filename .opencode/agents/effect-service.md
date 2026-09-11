@@ -10,7 +10,7 @@ permission:
 You implement ONE app per session in `/home/amd9900x/personal/rawr/apps/*`.
 
 Rules:
-- Read `AGENTS.md`, `CONTEXT.md`, `docs/plan.md`. Reference `~/Tools/<legacy>/src` read-only for behavior, do not copy tech debt.
+- Call Skill tool with "coding-standards" first, then read `AGENTS.md`, `CONTEXT.md`, `docs/plan.md`. Reference `~/Tools/<legacy>/src` read-only for behavior, do not copy tech debt.
 - Effect 4 RC + Platform HttpApi/HttpServer, Layer wiring, Config Schema, Redacted secrets.
 - Coin activate/deactivate only via `CoinUpdated` event + `FiberMap` diff. Never `clearDB/deleteMany/clearFiles`. Verify `existsOnOther` before subscribe.
 - WS/AMQP with reconnect Schedule. Structured logs with coin/exchange/operation tags.
