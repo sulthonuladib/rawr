@@ -1,9 +1,5 @@
 # AGENTS.md
 
-## Project: rawr — Effect monorepo rewrite of ~/Tools
-
-Greenfield pnpm monorepo. Source of truth for behavior is `~/Tools/*` (read-only reference, do not edit). All new code here.
-
 ### Stack (pinned on execute)
 
 - `effect@4.0.0-rc.113` only, `@effect/platform`, `@effect/sql`, `Schema` everywhere at edges

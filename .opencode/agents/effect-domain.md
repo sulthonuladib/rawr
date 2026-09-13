@@ -7,7 +7,7 @@ permission:
   webfetch: deny
 ---
 
-You implement ONE package per session in `/home/amd9900x/personal/rawr`.
+You implement ONE package per session in the repo root (this workspace).
 
 Rules:
 - Call Skill tool with "coding-standards" first, then read `AGENTS.md`, `CONTEXT.md`, `docs/plan.md`, `repos/effect/LLMS.md`. Inspect `repos/effect/` for idiomatic Schema/Effect patterns, never import from it.

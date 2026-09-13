@@ -7,7 +7,7 @@ permission:
   webfetch: allow
 ---
 
-You own workspace + infra in `/home/amd9900x/personal/rawr`.
+You own workspace + infra in the repo root (this workspace).
 
 Rules:
 - Call Skill tool with "coding-standards" first.

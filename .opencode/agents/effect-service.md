@@ -7,7 +7,7 @@ permission:
   webfetch: deny
 ---
 
-You implement ONE app per session in `/home/amd9900x/personal/rawr/apps/*`.
+You implement ONE app per session in `apps/*` of the repo root (this workspace).
 
 Rules:
 - Call Skill tool with "coding-standards" first, then read `AGENTS.md`, `CONTEXT.md`, `docs/plan.md`. Reference `~/Tools/<legacy>/src` read-only for behavior, do not copy tech debt.

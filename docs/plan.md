@@ -1,18 +1,18 @@
 # Plan — Tools → rawr rewrite
 
-## Phase 0 — Foundation (current batch)
+## Phase 0 — Foundation (done, committed on `main`)
 
-- [x] git init
-- [ ] `pnpm-workspace.yaml` with catalog (effect rc, platform, sql), `tsconfig.base.json` TS7 strict, `.node-version`, `.vscode/settings.json` (repos exclude + tsdk), `opencode.json`, `.gitignore`
-- [ ] `repos/effect` subtree `--squash` + `agent-patterns/effect-schema.md`
-- [ ] `packages/config, domain, observability` skeletons
-- [ ] `infra/compose.yaml` v1 (postgres, redis, rabbitmq only) to unblock dev
+- [x] git init + rename to `main`
+- [x] `pnpm-workspace.yaml` with catalog (effect rc, platform, sql), `tsconfig.base.json` TS7 strict, `.node-version`, `.vscode/settings.json` (repos exclude + tsdk), `opencode.json`, `.gitignore`
+- [x] `repos/effect` subtree `--squash` + `agent-patterns/effect-schema.md`
+- [x] `packages/config, domain, observability` skeletons → implemented (`3125cbc`, `530d802`, `7085ad4`)
+- [x] `infra/compose.yaml` v1 (postgres, redis, rabbitmq only) to unblock dev
 
-## Phase 1 — Domain + Store
+## Phase 1 — Domain + Store (done, committed on `main`)
 
-- `packages/domain`: Schema `CmcId, Exchange, ActiveCoin, OrderbookTick, Opportunity, CoinUpdated`, errors `CoinNotFound|StoreUnavailable`
-- `packages/coin-store`: Drizzle tables `active_coins, exchange_symbols, orderbook_snapshots, opportunities`, repos with `find/update/upsert`, no deleteMany, `existsOnOther(cmcId, exchange)` query
-- `packages/messaging`: `CoinUpdated` PubSub + RabbitMQ adapter, `packages/config`: Env Schema
+- `packages/domain`: Schema `CmcId, Exchange, ActiveCoin, OrderbookTick, Opportunity, CoinUpdated`, errors `CoinNotFound|StoreUnavailable` — done (`3125cbc`)
+- `packages/coin-store`: Drizzle tables `active_coins, exchange_symbols, orderbook_snapshots, opportunities`, repos with `find/update/upsert`, no deleteMany, `existsOnOther(cmcId, exchange)` query — done (`175a916`)
+- `packages/messaging`: `CoinUpdated` PubSub + RabbitMQ adapter, `packages/config`: Env Schema — done (`e33db68`, `530d802`)
 
 Delegate to `@effect-domain`.
 
