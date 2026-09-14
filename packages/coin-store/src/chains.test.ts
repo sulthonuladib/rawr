@@ -5,7 +5,7 @@
  * 91000x `cmcId` range and `TS…` chain codes so files and reruns cannot
  * collide; inserts are idempotent and nothing is ever deleted.
  */
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { afterAll, describe, expect, it } from "vitest"
 import { CmcId } from "@rawr/domain"
 import {
@@ -20,7 +20,8 @@ import { parseChain } from "@rawr/domain"
 import { db, pool } from "./db.js"
 import { insertCrypto, insertListing } from "./fixtures.js"
 
-const cmcId = 910001 as CmcId
+// Parsed (not asserted): decodeUnknownSync establishes the CmcId brand.
+const cmcId = Schema.decodeUnknownSync(CmcId)(910001)
 
 afterAll(async () => {
   await pool.end()
@@ -91,7 +92,8 @@ describe("listing chains", () => {
   })
 
   it("reports unknown speed for a listing with no chains", async () => {
-    const otherId = 910002 as CmcId
+    const otherId = Schema.decodeUnknownSync(CmcId)(910002)
+
     const cryptoId = await Effect.runPromise(insertCrypto(otherId, "TS2"))
     await Effect.runPromise(insertListing(cryptoId, "bybit", true))
 
@@ -117,7 +119,8 @@ describe("listing chains", () => {
   })
 
   it("fails typed on a missing listing", async () => {
-    const missing = 919999 as CmcId
+    const missing = Schema.decodeUnknownSync(CmcId)(919999)
+
     const error = await Effect.runPromise(Effect.flip(listListingChains(db, missing, "binance")))
 
     expect(error._tag).toBe("CoinNotFound")

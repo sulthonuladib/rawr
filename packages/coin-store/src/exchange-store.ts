@@ -274,7 +274,7 @@ export const listOpportunities = (
   }).pipe(
     Effect.flatMap((rows) => {
       if (rows.length === 0) {
-        return Effect.succeed([] as Array<StoredOpportunity>)
+        return Effect.succeed<Array<StoredOpportunity>>([])
       }
 
       return Effect.tryPromise({

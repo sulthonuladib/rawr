@@ -5,14 +5,16 @@
  * 92000x `cmcId` range so files and reruns cannot collide; inserts are
  * idempotent and nothing is ever deleted.
  */
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { afterAll, describe, expect, it } from "vitest"
 import { CmcId, parseOpportunity, parseOrderbookTick } from "@rawr/domain"
 import { listOpportunities, saveOpportunity, saveSnapshot } from "./exchange-store.js"
 import { db, pool } from "./db.js"
 import { insertCrypto, insertListing } from "./fixtures.js"
 
-const cmcId = 920001 as CmcId
+// Parsed (not asserted): decodeUnknownSync establishes the CmcId brand.
+const cmcId = Schema.decodeUnknownSync(CmcId)(920001)
+
 const now = new Date("2026-09-14T08:00:00.000Z")
 
 afterAll(async () => {
@@ -36,6 +38,7 @@ describe("exchange snapshots and opportunities", () => {
         sellAmount: 5
       })
     )
+
     await Effect.runPromise(saveSnapshot(db, tick, now))
 
     const live = await Effect.runPromise(
@@ -51,6 +54,7 @@ describe("exchange snapshots and opportunities", () => {
         profitPercentage: "0.40"
       })
     )
+
     const stale = await Effect.runPromise(
       parseOpportunity({
         symbol: "TST3",
@@ -98,7 +102,8 @@ describe("exchange snapshots and opportunities", () => {
   })
 
   it("fails typed when the coin is missing", async () => {
-    const missing = 929999 as CmcId
+    const missing = Schema.decodeUnknownSync(CmcId)(929999)
+
     const tick = await Effect.runPromise(
       parseOrderbookTick({
         cmcId: missing,
@@ -110,6 +115,7 @@ describe("exchange snapshots and opportunities", () => {
         sellAmount: 1
       })
     )
+
     const error = await Effect.runPromise(Effect.flip(saveSnapshot(db, tick, now)))
 
     expect(error._tag).toBe("CoinNotFound")

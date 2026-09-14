@@ -32,7 +32,9 @@ export const insertCrypto = (cmcId: CmcId, symbol: string): Effect.Effect<number
         .from(cryptocurrencies)
         .where(eq(cryptocurrencies.cmcId, cmcId))
         .limit(1)
+
       const row = rows[0]
+
       if (row === undefined) {
         throw new Error(`insertCrypto: missing row for cmcId ${cmcId}`)
       }
@@ -58,7 +60,9 @@ export const insertListing = (
         .from(exchanges)
         .where(eq(exchanges.slug, exchangeToSlug(exchange)))
         .limit(1)
+
       const exchangeRow = exchangeRows[0]
+
       if (exchangeRow === undefined) {
         throw new Error(`insertListing: missing exchange seed row for ${exchange}`)
       }
@@ -73,7 +77,9 @@ export const insertListing = (
         .from(exchangeCryptocurrencies)
         .where(eq(exchangeCryptocurrencies.cryptocurrencyId, cryptocurrencyId))
         .limit(1)
+
       const row = rows[0]
+
       if (row === undefined) {
         throw new Error(`insertListing: missing row for cryptocurrency ${cryptocurrencyId}`)
       }

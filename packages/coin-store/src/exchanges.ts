@@ -25,13 +25,16 @@ export const exchangeToSlug = (exchange: Exchange): string =>
  * Map a DB slug back to its domain exchange.
  *
  * Inverse of `exchangeToSlug`: `"upbit_usdt" -> "upbitUsdt"`, everything else
- * identity. Fails as `InvalidCoinError` when the slug is not one of the 15
- * seeded exchanges.
+ * identity. Looks the candidate up in the `Exchanges` tuple (no assertion —
+ * the tuple lookup carries the `Exchange` type), so an unknown slug fails as
+ * `InvalidCoinError` (exchange #16 needs its one-line `Exchange` union update
+ * first).
  */
 export const slugToExchange = (slug: string): Effect.Effect<Exchange, InvalidCoinError> => {
   const candidate = slug === "upbit_usdt" ? "upbitUsdt" : slug
+  const found = Exchanges.find((entry) => entry === candidate)
 
-  return (Exchanges as ReadonlyArray<string>).includes(candidate)
-    ? Effect.succeed(candidate as Exchange)
-    : Effect.fail(new InvalidCoinError({ message: `slugToExchange: unknown exchange slug (${slug})` }))
+  return found === undefined
+    ? Effect.fail(new InvalidCoinError({ message: `slugToExchange: unknown exchange slug (${slug})` }))
+    : Effect.succeed(found)
 }
