@@ -1,5 +1,5 @@
 /**
- * `@rawr/domain/market` — orderbook ticks and arbitrage opportunities.
+ * `@rawr/domain/exchange` — orderbook ticks and arbitrage opportunities.
  *
  * Per-exchange orderbook rows (`cmcId`, `buyPrice`, `sellPrice`,
  * `buyAmount`, `sellAmount`) updated from `{ cmcId, asks, bids }` WS

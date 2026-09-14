@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Drizzle Postgres repositories (active_coins, snapshots, opportunities)",
+  "description": "Drizzle Postgres repositories (cryptocurrencies, snapshots, opportunities, chains)",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,7 +14,7 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "dev": "tsc --watch -p tsconfig.json",
-    "test": "echo \"ok: no tests yet\""
+    "test": "vitest run --exclude '**/dist/**'"
   },
   "dependencies": {
     "@effect/sql-pg": "catalog:",
@@ -23,6 +23,9 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

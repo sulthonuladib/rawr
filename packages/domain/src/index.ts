@@ -2,10 +2,14 @@
  * `@rawr/domain` — shared domain Schemas and errors.
  *
  * Branded primitives (`CmcId`, `Symbol`, `AlternateSymbol`), the exact
- * 15-exchange union, `ActiveCoin` with per-exchange `{ enabled, alternate }`
- * listings, `CoinStatus` (`Active | Inactive`) tagged union, `OrderbookTick`,
- * `Opportunity`, the `CoinUpdated` event, and `TaggedError` failures
- * (`CoinNotFound`, `InvalidCoinError`, `StoreUnavailable`).
+ * 15-exchange union (edge-validation set), `Chain` / `ListingChain` plus
+ * derived `TransferSpeed`, `CoinStatus` (`Active | Inactive`) tagged union,
+ * `OrderbookTick`, `Opportunity`, the `CoinUpdated` event, and `TaggedError`
+ * failures (`CoinNotFound`, `InvalidCoinError`, `StoreUnavailable`).
+ *
+ * There is no coin aggregate in this package — services query the
+ * `cryptocurrencies` / `exchange_cryptocurrency` tables directly for what
+ * they need.
  *
  * Rule: every HTTP/WS/AMQP edge decodes through these Schemas (parse, don't
  * validate). Errors are values (`Effect.fail`), never `throw`. No
@@ -16,7 +20,7 @@
 /** Package identifier. */
 export const packageName = "@rawr/domain" as const
 
-/** Branded primitives + the 15-exchange union. */
+/** Branded primitives + the 15-exchange union (edge-validation set). */
 export {
   AlternateSymbol,
   CmcId,
@@ -36,17 +40,26 @@ export type {
 /** Domain failures as values. */
 export { CoinNotFound, InvalidCoinError, StoreUnavailable } from "./errors.js"
 
-/** The `ActiveCoin` aggregate, listings, and its edge parser. */
+/** Chain registry, per-listing flags, and derived transfer speed. */
 export {
-  ActiveCoin,
-  decodeActiveCoin,
-  encodeActiveCoin,
-  ExchangeListing,
-  parseActiveCoin
-} from "./coin.js"
+  Chain,
+  decodeChain,
+  decodeListingChain,
+  deriveTransferSpeed,
+  encodeChain,
+  encodeListingChain,
+  ListingChain,
+  parseChain,
+  parseListingChain,
+  TransferSpeed
+} from "./chain.js"
 
-/** `ActiveCoin` wire types. */
-export type { ActiveCoinEncoded, ExchangeListingEncoded } from "./coin.js"
+/** Chain wire types. */
+export type {
+  ChainEncoded,
+  ListingChainEncoded,
+  TransferSpeedEncoded
+} from "./chain.js"
 
 /** Coin lifecycle tagged union. */
 export { CoinActive, CoinInactive, CoinStatus } from "./status.js"
@@ -65,14 +78,14 @@ export {
   OrderbookTick,
   parseOpportunity,
   parseOrderbookTick
-} from "./market.js"
+} from "./exchange.js"
 
 /** Market wire types. */
 export type {
   NonNegativeNumberEncoded,
   OpportunityEncoded,
   OrderbookTickEncoded
-} from "./market.js"
+} from "./exchange.js"
 
 /** The `CoinUpdated` event and its edge parser. */
 export {
