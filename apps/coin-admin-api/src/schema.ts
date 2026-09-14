@@ -1,8 +1,6 @@
 import {
   boolean,
-  index,
   integer,
-  numeric,
   pgEnum,
   pgTable,
   text,
@@ -128,75 +126,12 @@ export type ExchangeCryptocurrencyChainRow = typeof exchangeCryptocurrencyChains
 
 export type ExchangeCryptocurrencyChainInsert = typeof exchangeCryptocurrencyChains.$inferInsert
 
-export const exchangeSnapshots = pgTable(
-  "exchange_snapshots",
-  {
-    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
-    cryptocurrencyId: integer("cryptocurrency_id")
-      .notNull()
-      .references(() => cryptocurrencies.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    exchangeId: integer("exchange_id")
-      .notNull()
-      .references(() => exchanges.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    buyPrice: numeric("buy_price", { mode: "number" }).notNull(),
-    sellPrice: numeric("sell_price", { mode: "number" }).notNull(),
-    buyAmount: numeric("buy_amount", { mode: "number" }).notNull(),
-    sellAmount: numeric("sell_amount", { mode: "number" }).notNull(),
-    capturedAt: timestamp("captured_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-    ...timestamps()
-  },
-  (table) => [
-    index("exchange_snapshots_crypto_exchange_captured_idx").on(
-      table.cryptocurrencyId,
-      table.exchangeId,
-      table.capturedAt
-    )
-  ]
-)
-
-export type ExchangeSnapshotRow = typeof exchangeSnapshots.$inferSelect
-
-export type ExchangeSnapshotInsert = typeof exchangeSnapshots.$inferInsert
-
-export const exchangeOpportunities = pgTable(
-  "exchange_opportunities",
-  {
-    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
-    cryptocurrencyId: integer("cryptocurrency_id")
-      .notNull()
-      .references(() => cryptocurrencies.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    buyExchangeId: integer("buy_exchange_id")
-      .notNull()
-      .references(() => exchanges.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    sellExchangeId: integer("sell_exchange_id")
-      .notNull()
-      .references(() => exchanges.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    symbol: text("symbol").notNull(),
-    buyPrice: numeric("buy_price", { mode: "number" }).notNull(),
-    sellPrice: numeric("sell_price", { mode: "number" }).notNull(),
-    buyAmount: numeric("buy_amount", { mode: "number" }).notNull(),
-    sellAmount: numeric("sell_amount", { mode: "number" }).notNull(),
-    profitPercentage: numeric("profit_percentage", { mode: "number" }).notNull(),
-    expiredAt: timestamp("expired_at", { withTimezone: true, mode: "date" }).notNull(),
-    ...timestamps()
-  },
-  (table) => [
-    index("exchange_opportunities_expired_profit_idx").on(table.expiredAt, table.profitPercentage)
-  ]
-)
-
-export type ExchangeOpportunityRow = typeof exchangeOpportunities.$inferSelect
-
-export type ExchangeOpportunityInsert = typeof exchangeOpportunities.$inferInsert
-
 export const schema = {
   cryptocurrencies,
   exchanges,
   exchangeCryptocurrencies,
   chains,
   exchangeCryptocurrencyChains,
-  exchangeSnapshots,
-  exchangeOpportunities,
   cryptocurrencyStatusEnum
 }
 

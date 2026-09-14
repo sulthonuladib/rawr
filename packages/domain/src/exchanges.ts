@@ -1,5 +1,7 @@
 import { Effect } from "effect"
-import { Exchange, Exchanges, InvalidCoinError } from "@rawr/domain"
+import type { Exchange } from "./brands.js"
+import { Exchanges } from "./brands.js"
+import { InvalidCoinError } from "./errors.js"
 
 export const exchangeToSlug = (exchange: Exchange): string =>
   exchange === "upbitUsdt" ? "upbit_usdt" : exchange

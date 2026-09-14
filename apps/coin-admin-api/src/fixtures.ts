@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm"
 import { Effect } from "effect"
-import { CmcId, Exchange, StoreUnavailable } from "@rawr/domain"
+import { CmcId, Exchange, exchangeToSlug, StoreUnavailable } from "@rawr/domain"
 import { exchangeCryptocurrencies, cryptocurrencies, exchanges } from "./schema.js"
-import { exchangeToSlug } from "./exchanges.js"
 import { db } from "./db.js"
 
 const describeCause = (cause: unknown): string =>

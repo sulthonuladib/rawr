@@ -205,9 +205,6 @@ settings:
 
 catalogs:
   default:
-    '@effect/sql-pg':
-      specifier: 4.0.0-rc.113
-      version: 4.0.0-rc.113
     '@oxlint/plugins':
       specifier: 1.82.0
       version: 1.82.0
@@ -249,38 +246,71 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.4
-      drizzle-kit:
-        specifier: 'catalog:'
-        version: 0.31.10
       oxlint:
         specifier: 'catalog:'
         version: 1.82.0
-      pg:
-        specifier: 'catalog:'
-        version: 8.23.0
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
 
   apps/arbitrage-engine:
     dependencies:
+      '@rawr/coin-admin-api':
+        specifier: workspace:*
+        version: link:../coin-admin-api
+      '@rawr/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.113
     devDependencies:
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
+      drizzle-kit:
+        specifier: 'catalog:'
+        version: 0.31.10
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.0
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(esbuild@0.28.2)(tsx@4.23.13))
 
   apps/coin-admin-api:
     dependencies:
+      '@rawr/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.113
     devDependencies:
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
+      drizzle-kit:
+        specifier: 'catalog:'
+        version: 0.31.10
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.0
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(esbuild@0.28.2)(tsx@4.23.13))
 
   apps/crawler-monitor:
     dependencies:
@@ -304,13 +334,34 @@ importers:
 
   apps/ingest-receiver:
     dependencies:
+      '@rawr/coin-admin-api':
+        specifier: workspace:*
+        version: link:../coin-admin-api
+      '@rawr/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.113
     devDependencies:
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
+      drizzle-kit:
+        specifier: 'catalog:'
+        version: 0.31.10
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.0
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(esbuild@0.28.2)(tsx@4.23.13))
 
   apps/ingest-sender:
     dependencies:
@@ -341,34 +392,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
-
-  packages/coin-store:
-    dependencies:
-      '@effect/sql-pg':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.113(effect@4.0.0-rc.113)
-      '@rawr/domain':
-        specifier: workspace:*
-        version: link:../domain
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.113
-    devDependencies:
-      '@types/pg':
-        specifier: 'catalog:'
-        version: 8.23.1
-      pg:
-        specifier: 'catalog:'
-        version: 8.23.0
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(esbuild@0.28.2)(tsx@4.23.13))
 
   packages/config:
     dependencies:
@@ -426,11 +449,6 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
-
-  '@effect/sql-pg@4.0.0-rc.113':
-    resolution: {integrity: sha512-xsAbmxsR5sC6Pc/38nB4/rBi1co4aCC7e4T95sVy8EhWA9NRheimtiN05EyhTKZwX1C0T2gquainQwCuQYuKuA==}
-    peerDependencies:
-      effect: ^4.0.0-rc.113
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -1740,10 +1758,6 @@ packages:
 snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
-
-  '@effect/sql-pg@4.0.0-rc.113(effect@4.0.0-rc.113)':
-    dependencies:
-      effect: 4.0.0-rc.113
 
   '@esbuild-kit/core-utils@3.3.2':
     dependencies:
