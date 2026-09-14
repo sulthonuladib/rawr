@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Crawler monitor — log fan-out with LogId (replaces crawler-logs queue)",
+  "description": "Crawler monitor — log fan-out with LogId",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Signal card — Effect HttpServer with real HTML templates (not nginx static)",
+  "description": "Signal card — Effect HttpServer with real HTML templates",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",

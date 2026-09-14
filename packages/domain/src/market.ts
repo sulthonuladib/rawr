@@ -1,14 +1,12 @@
 /**
  * `@rawr/domain/market` — orderbook ticks and arbitrage opportunities.
  *
- * Legacy shapes: per-exchange orderbook rows (`cmcId`, `buyPrice`,
- * `sellPrice`, `buyAmount`, `sellAmount` — see
- * `~/Tools/exchange-sender-websocket/src/models/Orderbook.js`) updated from
- * `{ cmcId, asks, bids }` WS payloads, and arbitrage results (`symbol`,
- * buy/sell prices + amounts, buy/sell exchanges, `profitPercentage` formatted
- * with `toFixed(2)` — see `~/Tools/potential/types.go` and
- * `price-diff.service.js`). Prices/amounts are non-negative (`0` means
- * missing on the wire, and legacy guards skip `buyPrice != 0` rows).
+ * Per-exchange orderbook rows (`cmcId`, `buyPrice`, `sellPrice`,
+ * `buyAmount`, `sellAmount`) updated from `{ cmcId, asks, bids }` WS
+ * payloads, and arbitrage results (`symbol`, buy/sell prices + amounts,
+ * buy/sell exchanges, `profitPercentage` formatted with `toFixed(2)`).
+ * Prices/amounts are non-negative (`0` means missing on the wire, and
+ * guards skip `buyPrice != 0` rows).
  *
  * @module
  */
@@ -67,6 +65,7 @@ export const encodeOrderbookTick = Schema.encodeEffect(OrderbookTick)
  * @returns the decoded tick, or `InvalidCoinError`
  */
 export const parseOrderbookTick = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<OrderbookTick, InvalidCoinError, typeof OrderbookTick["DecodingServices"]> =>
   decodeOrderbookTick(input).pipe(
@@ -76,9 +75,9 @@ export const parseOrderbookTick = (
 /**
  * Arbitrage opportunity between two exchanges for one coin.
  *
- * `profitPercentage` keeps the legacy `toFixed(2)` string format (e.g.
+ * `profitPercentage` keeps the `toFixed(2)` string format (e.g.
  * `"0.42"`); the engine emits only rows at or above its configured threshold
- * (legacy default `0.5`, plan target `≥ 0.1%` on 2M volume).
+ * (`≥ 0.1%` on 2M volume).
  */
 export class Opportunity extends Schema.Class<Opportunity>("@rawr/domain/Opportunity")({
   symbol: Symbol,
@@ -113,6 +112,7 @@ export const encodeOpportunity = Schema.encodeEffect(Opportunity)
  * @returns the decoded opportunity, or `InvalidCoinError`
  */
 export const parseOpportunity = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<Opportunity, InvalidCoinError, typeof Opportunity["DecodingServices"]> =>
   decodeOpportunity(input).pipe(

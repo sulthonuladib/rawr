@@ -1,10 +1,9 @@
 /**
  * `@rawr/domain/coin` — the `ActiveCoin` aggregate and its edge parser.
  *
- * Legacy shape (`ActiveCoin.js` / `ActiveCoin.model.ts`): `symbol`, `cmcId`,
- * `name`, `slug`, `logo`, `reason` (`""` default), `transferSpeed` (`""`
- * default), plus per exchange a boolean flag and an `<exchange>AlternateSymbol`
- * string (`""` default). The domain normalizes each flat pair into one
+ * Coin shape: `symbol`, `cmcId`, `name`, `slug`, `logo`, `reason`
+ * (`""` default), `transferSpeed` (`""` default), plus per exchange a boolean
+ * flag and an `<exchange>AlternateSymbol` string (`""` default). The domain normalizes each flat pair into one
  * `ExchangeListing` (`{ enabled, alternate }`) keyed by the exchange name, so
  * services iterate `Exchanges` instead of touching 30 columns. The
  * `coin-store` package maps this back to flat Drizzle columns.
@@ -17,7 +16,7 @@ import { InvalidCoinError } from "./errors.js"
 
 /**
  * Per-exchange listing: whether the coin is tracked there plus an optional
- * symbol override (`""` means no override, matching the legacy default).
+ * symbol override (`""` means no override).
  */
 export const ExchangeListing = Schema.Struct({
   enabled: Schema.Boolean,
@@ -33,8 +32,8 @@ export type ExchangeListingEncoded = typeof ExchangeListing["Encoded"]
 /**
  * A listed coin with its 15 per-exchange listings.
  *
- * `reason` / `transferSpeed` stay required `String`s (possibly `""`) to match
- * legacy defaults without `exactOptionalPropertyTypes` friction.
+ * `reason` / `transferSpeed` stay required `String`s (possibly `""`) to avoid
+ * `exactOptionalPropertyTypes` friction.
  */
 export class ActiveCoin extends Schema.Class<ActiveCoin>("@rawr/domain/ActiveCoin")({
   symbol: Symbol,
@@ -86,6 +85,7 @@ export const encodeActiveCoin = Schema.encodeEffect(ActiveCoin)
  * @returns the decoded coin, or `InvalidCoinError`
  */
 export const parseActiveCoin = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<ActiveCoin, InvalidCoinError, typeof ActiveCoin["DecodingServices"]> =>
   decodeActiveCoin(input).pipe(

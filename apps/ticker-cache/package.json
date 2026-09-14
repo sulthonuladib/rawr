@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Ticker cache — scheduled snapshot cache (replaces legacy ticker-cache :4001)",
+  "description": "Ticker cache — scheduled snapshot cache",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",

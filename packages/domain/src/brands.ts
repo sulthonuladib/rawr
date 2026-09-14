@@ -1,9 +1,7 @@
 /**
  * `@rawr/domain/brands` — branded primitives and the 15-exchange union.
  *
- * Legacy source of truth: `~/Tools/coin-lister-service/src/models/ActiveCoin.js`
- * and `~/Tools/cmc-aggregator/models/ActiveCoin.model.ts` (read-only). Both
- * define the same 15 exchange flags, each with a boolean plus an
+ * The 15 exchange flags each pair a boolean with an
  * `<exchange>AlternateSymbol` string. This module captures that exact set as
  * a `Schema` union so HTTP/WS/AMQP edges parse instead of validate.
  *
@@ -45,9 +43,9 @@ export type SymbolEncoded = typeof Symbol["Encoded"]
 /**
  * Per-exchange alternate symbol override (e.g. `"BTCIDR"` on Indodax).
  *
- * Legacy stores `""` when there is no override, so the empty string is valid
- * here — unlike `Symbol`. Branded for nominal safety, no extra runtime check
- * beyond `String`.
+ * `""` means no override, so the empty string is valid here — unlike
+ * `Symbol`. Branded for nominal safety, no extra runtime check beyond
+ * `String`.
  */
 export const AlternateSymbol = Schema.String.pipe(Schema.brand("AlternateSymbol"))
 
@@ -58,13 +56,12 @@ export type AlternateSymbol = typeof AlternateSymbol["Type"]
 export type AlternateSymbolEncoded = typeof AlternateSymbol["Encoded"]
 
 /**
- * Exact 15 exchanges from the legacy `ActiveCoin` models, in legacy field
- * order.
+ * The exact 15 exchanges, in field order.
  *
- * Note the `upbitUsdt` entry: the Mongoose field is camelCase `upbitUsdt`
- * while the AMQP queue name is `upbit_usdt` (see
- * `~/Tools/exchange-receiver-websocket/src/amqp.js`). The domain keeps the
- * model spelling; adapters map the wire name at the edge.
+ * Note the `upbitUsdt` entry: the model field is camelCase `upbitUsdt`
+ * while the AMQP queue name is `upbit_usdt`. The domain keeps the
+ * model spelling; adapters map the wire name at the edge
+ * (`exchangeToQueue`).
  */
 export const Exchanges = [
   "binance",
@@ -85,14 +82,14 @@ export const Exchanges = [
 ] as const
 
 /**
- * Exchange union schema: exactly one of the 15 legacy exchange keys.
+ * Exchange union schema: exactly one of the 15 exchange keys.
  *
  * Decode at every edge (HTTP query/path, WS payload, AMQP routing key) so an
  * unknown exchange fails in the `Effect` channel, never via `throw`.
  */
 export const Exchange = Schema.Literals(Exchanges)
 
-/** Type-level `Exchange` (one of the 15 legacy exchange keys). */
+/** Type-level `Exchange` (one of the 15 exchange keys). */
 export type Exchange = typeof Exchange["Type"]
 
 /** Encoded (wire) representation of `Exchange`. */

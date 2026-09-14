@@ -33,10 +33,7 @@ export class CoinNotFound extends Schema.TaggedError<CoinNotFound>()("CoinNotFou
 
 /**
  * Raised when the persistence layer is unreachable (Postgres down, pool
- * exhausted).
- *
- * Listed in `docs/plan.md` Phase 1 alongside `CoinNotFound`; kept here so
- * `coin-store` and services share one definition.
+ * exhausted). Shared here so `coin-store` and services use one definition.
  */
 export class StoreUnavailable extends Schema.TaggedError<StoreUnavailable>()("StoreUnavailable", {
   message: Schema.String

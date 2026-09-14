@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Effect monorepo rewrite of ~/Tools — pnpm foundation (Phase 0)",
+  "description": "Crypto arbitrage signals across 15 exchanges — Effect monorepo",
   "engines": {
     "node": "^24"
   },
@@ -17,14 +17,17 @@
   "scripts": {
     "dev": "pnpm --recursive --parallel run dev",
     "check": "pnpm --recursive run check",
+    "lint": "oxlint",
     "test": "pnpm --recursive run test",
     "build": "pnpm --recursive run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
   "devDependencies": {
+    "@oxlint/plugins": "catalog:",
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",
+    "oxlint": "catalog:",
     "typescript": "catalog:"
   }
 }

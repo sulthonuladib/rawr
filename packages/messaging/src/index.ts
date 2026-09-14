@@ -3,24 +3,21 @@
  * an in-memory `PubSub` implementation for tests/dev and a RabbitMQ adapter
  * skeleton behind the same port.
  *
- * Legacy sources of truth (read-only): `~/Tools/exchange-receiver-websocket/src/amqp.js`
- * (the 15 per-exchange queues in `queues` order, `maxLengthEachQueues`, every
- * `assertQueue` with `durable: false`), `~/Tools/monips/src/lib/crawler-state.ts`
- * (`assertQueue('crawler-logs', { durable: false })`), `~/Tools/monips/src/index.ts`
- * (the `{ market, status }` payload shape plus the four forwarded statuses), and the
- * `~/Tools/exchange-sender-websocket/src/utils/templates/*.template.js` senders
- * (per-exchange `assertQueue` with the same `maxLength`, `crawler-logs` logging
- * channel, fixed `setTimeout(..., 2000)` reconnect).
+ * Topology: 15 per-exchange queues in fixed order with per-queue `maxLength`
+ * caps, every `assertQueue` with `durable: false`; plus `crawler-logs`
+ * (`{ durable: false }`, carrying `CrawlerReport` payloads) and the
+ * `coin-updates` lifecycle queue. Reconnect is capped exponential backoff
+ * with jitter (`reconnectSchedule`), not a fixed delay.
  *
- * Deliberate departures from legacy, all documented at the call site:
+ * Deliberate design decisions, all documented at the call site:
  *
  * - `CoinUpdated` rides a new `coin-updates` queue — lifecycle events have no
- *   legacy queue equivalent, and unlike orderbook ticks they must never be
+ *   orderbook-tick equivalent, and unlike ticks they must never be
  *   dropped by a `maxLength` cap (a dropped deactivate would leak a live fiber).
  * - Fixed 2s reconnect becomes capped exponential backoff with jitter
  *   (`reconnectSchedule`), so a broker restart does not thundering-herd.
- * - Domain `upbitUsdt` (camelCase, per the legacy model) maps to wire
- *   `upbit_usdt` at the edge (`exchangeToQueue`).
+ * - Domain `upbitUsdt` (camelCase) maps to wire `upbit_usdt` at the edge
+ *   (`exchangeToQueue`).
  *
  * Rules: every AMQP edge encodes/decodes through `Schema` (parse, don't
  * validate). Errors are values (`Effect.fail` with `MessagingError`), never
@@ -67,11 +64,10 @@ const describeCause = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
 
 /**
- * Wire queue names for the 15 legacy per-exchange queues, in the exact order
- * of the `queues` array in `~/Tools/exchange-receiver-websocket/src/amqp.js`.
+ * Wire queue names for the 15 per-exchange queues, in fixed order.
  *
  * Note `upbit_usdt` (snake_case on the wire) versus the domain `upbitUsdt`
- * (camelCase in the legacy model) — `exchangeToQueue` maps between them so
+ * (camelCase) — `exchangeToQueue` maps between them so
  * callers never hand-assemble the wire name.
  */
 export const ExchangeQueueNames = [
@@ -123,6 +119,7 @@ export const decodeQueueName = Schema.decodeUnknownEffect(ExchangeQueueName)
  * @returns the decoded queue name, or `MessagingError`
  */
 export const parseQueueName = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<ExchangeQueueName, MessagingError, typeof ExchangeQueueName["DecodingServices"]> =>
   decodeQueueName(input).pipe(
@@ -132,8 +129,7 @@ export const parseQueueName = (
   )
 
 /**
- * Per-exchange `maxLength` caps, verbatim from `maxLengthEachQueues` in
- * `~/Tools/exchange-receiver-websocket/src/amqp.js` (500 for the slower books,
+ * Per-exchange `maxLength` caps (500 for the slower books,
  * 1000 for the fast ones). `Record<ExchangeQueueName, number>` keeps the map
  * total — adding a queue without its cap breaks compilation.
  */
@@ -156,15 +152,14 @@ export const MaxLengthPerQueue: Record<ExchangeQueueName, number> = {
 }
 
 /**
- * Legacy crawler telemetry queue (`crawler-logs`), asserted `{ durable: false }`
- * with no `maxLength` by both `monips/src/lib/crawler-state.ts` and every
- * sender template's logging channel. Carries `CrawlerReport` payloads.
+ * Crawler telemetry queue (`crawler-logs`), asserted `{ durable: false }`
+ * with no `maxLength`. Carries `CrawlerReport` payloads.
  */
 export const CrawlerLogsQueue = "crawler-logs" as const
 
 /**
- * New queue for `CoinUpdated` lifecycle events. No legacy equivalent exists —
- * coin activate/deactivate is new in rawr (legacy mutated Mongo directly).
+ * New queue for `CoinUpdated` lifecycle events. Coin activate/deactivate is
+ * event-driven (nothing mutates the store directly).
  * Asserted `{ durable: false }` with deliberately no `maxLength`: dropping a
  * deactivate would leak a live ingest fiber, so backpressure (not drops) is
  * the only acceptable overload behavior here.
@@ -172,7 +167,7 @@ export const CrawlerLogsQueue = "crawler-logs" as const
 export const CoinUpdatesQueue = "coin-updates" as const
 
 /**
- * Every queue asserted at connect, in assert order: the 15 legacy
+ * Every queue asserted at connect, in assert order: the 15
  * per-exchange queues first (receiver boot-order parity), then
  * `crawler-logs`, then the new `coin-updates`.
  */
@@ -195,7 +190,7 @@ export type QueueNameEncoded = typeof QueueName["Encoded"]
  *
  * Total over `Exchange` — the record is checked by the compiler, so a new
  * exchange cannot silently fall through. The only non-identity entry is
- * `upbitUsdt -> "upbit_usdt"` (legacy model spelling vs AMQP spelling).
+ * `upbitUsdt -> "upbit_usdt"` (model spelling vs AMQP spelling).
  *
  * @param exchange - the already-parsed domain exchange
  * @returns its wire queue name
@@ -218,15 +213,15 @@ export const exchangeToQueue = (exchange: Exchange): ExchangeQueueName => {
     reku: "reku",
     bitmart: "bitmart"
   }
+
   return wireNameByExchange[exchange]
 }
 
 /**
- * Options for one `assertQueue` call, mirroring the legacy shape
- * (`{ durable: false, maxLength? }`).
+ * Options for one `assertQueue` call (`{ durable: false, maxLength? }`).
  */
 export interface AssertQueueOptions {
-  /** Always `false` in v1, matching every legacy `assertQueue` call. */
+  /** Always `false` in v1, matching every `assertQueue` call. */
   readonly durable: boolean
   /** Length cap for per-exchange queues only; absent for `crawler-logs` / `coin-updates`. */
   readonly maxLength?: number
@@ -235,8 +230,8 @@ export interface AssertQueueOptions {
 /**
  * Build the `assertQueue` options for one queue.
  *
- * Per-exchange queues get their legacy `maxLength` from `MaxLengthPerQueue`;
- * `crawler-logs` (legacy asserts it bare) and `coin-updates` (must not drop
+ * Per-exchange queues get their `maxLength` from `MaxLengthPerQueue`;
+ * `crawler-logs` and `coin-updates` (must not drop
  * lifecycle events) assert `{ durable: false }` with no cap.
  *
  * @param queue - the queue to assert
@@ -246,6 +241,7 @@ export const assertQueueOptions = (queue: QueueName): AssertQueueOptions => {
   if (queue === CrawlerLogsQueue || queue === CoinUpdatesQueue) {
     return { durable: false }
   }
+
   return { durable: false, maxLength: MaxLengthPerQueue[queue] }
 }
 
@@ -288,6 +284,7 @@ export const encodeBusEvent = Schema.encodeEffect(BusEvent)
  * @returns the decoded event, or `MessagingError`
  */
 export const parseBusEvent = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<BusEvent, MessagingError, typeof BusEvent["DecodingServices"]> =>
   decodeBusEvent(input).pipe(
@@ -323,7 +320,7 @@ export const queueForEvent = (event: BusEvent): QueueName =>
  */
 export class AmqpChannel extends Context.Service<AmqpChannel, {
   /**
-   * Declare one queue with legacy-compatible options.
+   * Declare one queue with `{ durable: false, maxLength? }` options.
    *
    * @param queue - queue to declare
    * @param options - `{ durable: false, maxLength? }` from `assertQueueOptions`
@@ -402,12 +399,15 @@ export class Messaging extends Context.Service<Messaging, {
     Effect.gen(function*() {
       const pubsub = yield* PubSub.bounded<BusEvent>({ capacity: 256, replay: 50 })
       yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub))
+
       const publish = (event: BusEvent): Effect.Effect<void, MessagingError> =>
         Effect.asVoid(PubSub.publish(pubsub, event))
+
       const subscribe = (
         handler: (event: BusEvent) => Effect.Effect<void, MessagingError>
       ): Effect.Effect<void, MessagingError, Scope.Scope> =>
         Effect.asVoid(Effect.forkScoped(Stream.fromPubSub(pubsub).pipe(Stream.runForEach(handler))))
+
       return Messaging.of({ publish, subscribe })
     })
   )
@@ -433,6 +433,7 @@ export class Messaging extends Context.Service<Messaging, {
     Effect.gen(function*() {
       const channel = yield* AmqpChannel
       yield* assertTopology(channel).pipe(Effect.retry(reconnectSchedule))
+
       const publish = (event: BusEvent): Effect.Effect<void, MessagingError> =>
         Effect.gen(function*() {
           const encoded = yield* encodeBusEvent(event).pipe(
@@ -440,13 +441,16 @@ export class Messaging extends Context.Service<Messaging, {
               (cause) => new MessagingError({ message: cause.message, operation: "publish" })
             )
           )
+
           yield* channel.sendToQueue(queueForEvent(event), JSON.stringify(encoded))
         })
+
       const consumeWith = (
         handler: (event: BusEvent) => Effect.Effect<void, MessagingError>
       ) =>
         (body: string): Effect.Effect<void, MessagingError> =>
           Effect.flatMap(decodePayload(body), handler)
+
       const subscribe = (
         handler: (event: BusEvent) => Effect.Effect<void, MessagingError>
       ): Effect.Effect<void, MessagingError, Scope.Scope> =>
@@ -454,6 +458,7 @@ export class Messaging extends Context.Service<Messaging, {
           Effect.forkScoped(channel.consume(CoinUpdatesQueue, consumeWith(handler))),
           Effect.forkScoped(channel.consume(CrawlerLogsQueue, consumeWith(handler)))
         ))
+
       return Messaging.of({ publish, subscribe })
     })
   )
@@ -480,7 +485,7 @@ export const assertTopology = (
   })
 
 /**
- * Every queue asserted at connect, in assert order: the 15 legacy
+ * Every queue asserted at connect, in assert order: the 15
  * per-exchange wire names, then `crawler-logs`, then `coin-updates`.
  */
 export const TopologyQueues: ReadonlyArray<QueueName> = [
@@ -492,9 +497,8 @@ export const TopologyQueues: ReadonlyArray<QueueName> = [
 /**
  * Reconnect backoff for broker connects and topology asserts.
  *
- * Exponential from 500ms capped at 30s with jitter — replaces the legacy
- * fixed `setTimeout(..., 2000)` reconnect in the sender templates, so a
- * broker restart does not thundering-herd. Unbounded (consumers retry for the
+ * Exponential from 500ms capped at 30s with jitter, so a broker restart
+ * does not thundering-herd. Unbounded (consumers retry for the
  * process lifetime); compose boot therefore waits out RabbitMQ instead of
  * crash-looping.
  */
@@ -514,6 +518,7 @@ export const reconnectSchedule = Schedule.min([
  */
 const decodePayload = (body: string): Effect.Effect<BusEvent, MessagingError> =>
   Effect.try({
+    // oxlint-disable-next-line anti-slop/no-unknown-returns -- JSON.parse has no narrower honest type; parseBusEvent decodes the value below.
     try: (): unknown => JSON.parse(body),
     catch: (cause) =>
       new MessagingError({

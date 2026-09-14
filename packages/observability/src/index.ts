@@ -1,12 +1,9 @@
 /**
  * `@rawr/observability` — logging, tracing and `LogId`.
  *
- * Replaces the legacy `crawler-logs` AMQP queue (`{ market, status }` payloads
- * emitted by `~/Tools/exchange-sender-websocket/src/utils/templates/*.template.js`,
- * consumed by `~/Tools/monips/src/lib/crawler-state.ts`, fanned out over WS by
- * `~/Tools/monips/src/index.ts`) and the trivial console logger in
- * `~/Tools/exchange-sender-websocket/src/utils/logger.js` (`debug/info/warn`
- * wrappers around `console.log`).
+ * Crawler telemetry flows over the `crawler-logs` AMQP queue as
+ * `{ market, status }` payloads, fanned out over WS; logging is leveled
+ * (`debug/info/warn` wrappers around `console.log` live in adapters).
  *
  * Rules: every edge decodes through `Schema` (parse, don't validate). Errors
  * are values (`Effect.fail` with `ObserveError`), never `throw`. Structured
@@ -70,6 +67,7 @@ export const decodeLogId = Schema.decodeUnknownEffect(LogId)
  * @returns the decoded id, or `ObserveError`
  */
 export const parseLogId = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<LogId, ObserveError, typeof LogId["DecodingServices"]> =>
   decodeLogId(input).pipe(
@@ -111,9 +109,11 @@ export const makeLogId: Effect.Effect<LogId> = Effect.gen(function*() {
   const var14 = yield* Random.nextIntBetween(0, 0x3fff)
   const node24a = yield* Random.nextIntBetween(0, 0xffffff)
   const node24b = yield* Random.nextIntBetween(0, 0xffffff)
+
   const uuid =
     `${toPaddedHex(seg32, 8)}-${toPaddedHex(seg16a, 4)}-4${toPaddedHex(ver12, 3)}-` +
     `${toPaddedHex(0x8000 + var14, 4)}-${toPaddedHex(node24a, 6)}${toPaddedHex(node24b, 6)}`
+
   // SAFETY: version nibble is fixed to `4` and variant bits to `10xx`, with
   // all other nibbles hex from bounded ranges, so `uuid` always matches the
   // `Schema.isUUID()` check on `LogId`. The brand is nominal only; callers
@@ -122,13 +122,12 @@ export const makeLogId: Effect.Effect<LogId> = Effect.gen(function*() {
 })
 
 /**
- * Canonical crawler lifecycle statuses, in legacy first-seen order.
+ * Canonical crawler lifecycle statuses.
  *
- * The legacy senders emit ad-hoc strings (`connected`, `subscribed`, `ping`,
- * `pong`, `closed`, `reconnecting`, `error`, `disconnected`, `stopped` — see
- * the `mexc`/`okx` templates) while `monips` only forwards `connected`,
- * `reconnecting`, `closed`, `stopped`. This tuple keeps the four forwarded
- * statuses plus `error` (emitted on socket `error` before `close`) and drops
+ * Senders may emit ad-hoc strings (`connected`, `subscribed`, `ping`,
+ * `pong`, `closed`, `reconnecting`, `error`, `disconnected`, `stopped`);
+ * only `connected`, `reconnecting`, `closed`, `stopped` are forwarded.
+ * This tuple keeps the four forwarded statuses plus `error` (emitted on socket `error` before `close`) and drops
  * the transient `subscribed` / `ping` / `pong` / `disconnected` noise.
  * Adapters map the dropped wire values at the edge before decoding.
  */
@@ -169,6 +168,7 @@ export const decodeCrawlerStatus = Schema.decodeUnknownEffect(CrawlerStatus)
  * @returns the decoded status, or `ObserveError`
  */
 export const parseCrawlerStatus = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<CrawlerStatus, ObserveError, typeof CrawlerStatus["DecodingServices"]> =>
   decodeCrawlerStatus(input).pipe(
@@ -181,10 +181,10 @@ export const parseCrawlerStatus = (
  * Normalized `crawler-logs` payload: which crawler (`market`, e.g.
  * `"mexc-0"`) is in which `CrawlerStatus`.
  *
- * Legacy shape is the ad-hoc `{ market, status }` JSON the sender templates
- * push (`Buffer.from(JSON.stringify({ market, status }))`) and `monips`
- * keeps in a `Map<string, string>` for `snapshot` replies plus WS fan-out.
- * This class makes that shape explicit so edges parse instead of validate.
+ * The wire shape is ad-hoc `{ market, status }` JSON pushed by sender
+ * templates and kept in a `Map<string, string>` for `snapshot` replies
+ * plus WS fan-out. This class makes that shape explicit so edges parse
+ * instead of validate.
  */
 export class CrawlerReport extends Schema.Class<CrawlerReport>("@rawr/observability/CrawlerReport")({
   market: Schema.NonEmptyString,
@@ -213,6 +213,7 @@ export const encodeCrawlerReport = Schema.encodeEffect(CrawlerReport)
  * @returns the decoded report, or `ObserveError`
  */
 export const parseCrawlerReport = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<CrawlerReport, ObserveError, typeof CrawlerReport["DecodingServices"]> =>
   decodeCrawlerReport(input).pipe(
@@ -225,8 +226,7 @@ export const parseCrawlerReport = (
  * Log severity for `logWith`.
  *
  * Maps onto `Effect.logDebug` / `logInfo` / `logWarning` / `logError`.
- * `Debug` for protocol noise (legacy `DEBUG` lines), `Info` for lifecycle
- * transitions, `Warning` for reconnects, `Error` for socket/store failures.
+ * `Debug` for protocol noise, `Info` for lifecycle transitions, `Warning` for reconnects, `Error` for socket/store failures.
  */
 export type LogLevel = "Debug" | "Info" | "Warning" | "Error"
 
@@ -253,6 +253,21 @@ export interface LogFields {
 }
 
 /**
+ * Wire shape for `Effect.annotateLogs`: flat string map.
+ *
+ * Named owner contract (not an open dictionary) so the annotation map keeps
+ * its field evidence. All values are strings at the boundary: `LogId` and
+ * `CrawlerStatus` are branded/literal strings, hence assignable.
+ */
+export type LogAnnotations = {
+  readonly logId: string
+  readonly operation: string
+  coin?: string
+  exchange?: string
+  status?: string
+}
+
+/**
  * Log one line with structured safe fields.
  *
  * Annotates via `Effect.annotateLogs` (`logId`, `operation`, plus whichever
@@ -269,27 +284,34 @@ export const logWith = (
   message: string,
   level: LogLevel = "Info"
 ): Effect.Effect<void> => {
-  const annotations: Record<string, string> = {
+  const annotations: LogAnnotations = {
     logId: fields.logId,
     operation: fields.operation
   }
+
   if (fields.coin !== undefined) {
-    annotations["coin"] = fields.coin
+    annotations.coin = fields.coin
   }
+
   if (fields.exchange !== undefined) {
-    annotations["exchange"] = fields.exchange
+    annotations.exchange = fields.exchange
   }
+
   if (fields.status !== undefined) {
-    annotations["status"] = fields.status
+    annotations.status = fields.status
   }
+
   if (level === "Debug") {
     return Effect.logDebug(message).pipe(Effect.annotateLogs(annotations))
   }
+
   if (level === "Warning") {
     return Effect.logWarning(message).pipe(Effect.annotateLogs(annotations))
   }
+
   if (level === "Error") {
     return Effect.logError(message).pipe(Effect.annotateLogs(annotations))
   }
+
   return Effect.logInfo(message).pipe(Effect.annotateLogs(annotations))
 };

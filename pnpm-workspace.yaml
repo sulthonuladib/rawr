@@ -26,3 +26,7 @@ catalog:
   drizzle-kit: 0.31.10
   # Node types for Node 24 (tooling only: drizzle.config.ts, scripts).
   "@types/node": 24.13.4
+  # Oxlint + JS plugin runtime (tooling only: lint). Pinned in lockstep —
+  # upgrade both together so the plugin API matches the CLI.
+  oxlint: 1.82.0
+  "@oxlint/plugins": 1.82.0

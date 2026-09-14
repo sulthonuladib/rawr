@@ -6,3 +6,5 @@ build/
 .env.*
 repos/
 .scratch/
+# Per-worktree openspec drafts — local working state, not tracked.
+/openspec/changes/

@@ -1,9 +1,8 @@
 /**
  * `@rawr/domain` — shared domain Schemas and errors.
  *
- * Phase 1 implementation: branded primitives (`CmcId`, `Symbol`,
- * `AlternateSymbol`), the exact 15-exchange union from the legacy
- * `ActiveCoin` models, `ActiveCoin` with per-exchange `{ enabled, alternate }`
+ * Branded primitives (`CmcId`, `Symbol`, `AlternateSymbol`), the exact
+ * 15-exchange union, `ActiveCoin` with per-exchange `{ enabled, alternate }`
  * listings, `CoinStatus` (`Active | Inactive`) tagged union, `OrderbookTick`,
  * `Opportunity`, the `CoinUpdated` event, and `TaggedError` failures
  * (`CoinNotFound`, `InvalidCoinError`, `StoreUnavailable`).

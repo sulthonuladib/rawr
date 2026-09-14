@@ -1,10 +1,10 @@
 /**
  * `@rawr/domain/events` — the `CoinUpdated` domain event.
  *
- * Per `AGENTS.md`, coin activate/deactivate flows only through this event plus
- * a `FiberMap` diff — never `deleteMany` / `clearDB`. Publishers (coin-admin
- * API after a tx update) emit it; subscribers (ingest-sender) diff it against
- * running fibers.
+ * Coin activate/deactivate flows only through this event plus a `FiberMap`
+ * diff — never `deleteMany` / `clearDB`. Publishers (coin-admin API after a
+ * tx update) emit it; subscribers (ingest-sender) diff it against running
+ * fibers.
  *
  * @module
  */
@@ -17,7 +17,7 @@ import { CoinStatus } from "./status.js"
  * Coin listing change event, tagged `_tag: "CoinUpdated"` for bus routing.
  *
  * `status` carries the new lifecycle (`Active` / `Inactive`); `reason`
- * mirrors the legacy `reason` field (`""` when unset).
+ * is `""` when unset.
  */
 export class CoinUpdated extends Schema.TaggedClass<CoinUpdated>()("CoinUpdated", {
   cmcId: CmcId,
@@ -47,6 +47,7 @@ export const encodeCoinUpdated = Schema.encodeEffect(CoinUpdated)
  * @returns the decoded event, or `InvalidCoinError`
  */
 export const parseCoinUpdated = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser: unknown input is the contract; Schema decodes below.
   input: unknown
 ): Effect.Effect<CoinUpdated, InvalidCoinError, typeof CoinUpdated["DecodingServices"]> =>
   decodeCoinUpdated(input).pipe(

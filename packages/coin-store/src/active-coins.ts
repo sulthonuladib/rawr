@@ -2,14 +2,13 @@
  * `@rawr/coin-store/active-coins` — `active_coins` repository plus the
  * `exchange_symbols` routing projection.
  *
- * Legacy behavior ported (read-only sources): `find()` (all coins, `symbol` ascending),
- * `findOne({ symbol })`, `updateOne(..., { upsert: true })`, and `findOneAndUpdate` from
- * `~/Tools/coin-lister-service/src/repositories/active-coin.repository.js`. Deliberately
- * NOT ported: `destroy` (`findOneAndRemove`) — per `AGENTS.md`, coins deactivate via the
+ * Behavior: `find()` (all coins, `symbol` ascending), `findOne({ symbol })`,
+ * `updateOne(..., { upsert: true })`, and `findOneAndUpdate`. Deliberately
+ * NOT ported: `destroy` (`findOneAndRemove`) — coins deactivate via the
  * `CoinUpdated` event plus `setStatus`, never delete. There is no `deleteMany`/`clearDB` in
  * this package.
  *
- * Two deliberate departures from legacy, both documented at the call site:
+ * Two deliberate design decisions, both documented at the call site:
  *
  * - Identity is `CmcId` (the `cmc_id` primary key), not `symbol` — symbols change, ids do
  *   not, and the domain brands `CmcId` so the two cannot be confused.
@@ -25,7 +24,7 @@
  * @module
  */
 import { and, asc, eq, ne } from "drizzle-orm"
-import { Effect } from "effect"
+import { Effect, Predicate } from "effect"
 import {
   ActiveCoin,
   CmcId,
@@ -83,12 +82,14 @@ const toStoreUnavailable = (operation: string, cause: unknown, cmcId: CmcId): St
  */
 const firstRowOr = <E>(rows: ReadonlyArray<ActiveCoinRow>, fail: () => E): Effect.Effect<ActiveCoinRow, E> => {
   const row = rows[0]
+
   return row === undefined ? Effect.fail(fail()) : Effect.succeed(row)
 }
 
 /** Resolve the tradable symbol for one exchange (alternate override wins, else canonical). */
 const resolveSymbol = (coin: ActiveCoin, exchange: Exchange): string => {
   const alternate = coin[exchange].alternate
+
   return alternate === "" ? coin.symbol : alternate
 }
 
@@ -104,10 +105,12 @@ const resolveSymbol = (coin: ActiveCoin, exchange: Exchange): string => {
  */
 export const toActiveCoin = (row: ActiveCoinRow): Effect.Effect<ActiveCoin, InvalidCoinError> => {
   const listings: Record<string, { readonly enabled: boolean; readonly alternate: string }> = {}
+
   for (const exchange of Exchanges) {
     const keys = listingColumns[exchange]
     listings[exchange] = { enabled: row[keys.enabled], alternate: row[keys.alternate] }
   }
+
   return parseActiveCoin({
     symbol: row.symbol,
     cmcId: row.cmcId,
@@ -146,7 +149,7 @@ export const findActiveById = (
   )
 
 /**
- * List all active coins, `symbol` ascending (mirrors the legacy `find().sort({ symbol: 'asc' })`).
+ * List all active coins, `symbol` ascending.
  *
  * Only rows with `status = 'active'` are returned — deactivated coins stay in the table for
  * history and reactivation, they just drop out of this listing. Every row is parsed via
@@ -167,8 +170,7 @@ export const listActive = (db: Db): Effect.Effect<Array<ActiveCoin>, StoreUnavai
 /**
  * Insert a coin or update it when `cmc_id` already exists (`onConflictDoUpdate`).
  *
- * Legacy equivalent: `updateOne({ symbol }, { $set }, { upsert: true })`, keyed here by
- * `CmcId` instead of `symbol`. The write is transactional and dual: the `active_coins` row
+ * Keyed by `CmcId`, not `symbol`. The write is transactional and dual: the `active_coins` row
  * plus all 15 `exchange_symbols` projection rows (resolved symbols, mirrored flags) so the
  * projection never drifts. On conflict `status` is preserved — a re-PUT never reactivates;
  * use `setStatus` for lifecycle changes. New rows start as `"active"`.
@@ -187,11 +189,13 @@ export const upsertActive = (
         const insert = toActiveCoinInsert(coin)
         // `status` + pk stay out of the conflict `set`: a re-PUT preserves lifecycle.
         const { cmcId: _pk, status: _status, ...set } = insert
+
         const rows = await tx
           .insert(activeCoins)
           .values(insert)
           .onConflictDoUpdate({ target: activeCoins.cmcId, set })
           .returning()
+
         for (const exchange of Exchanges) {
           const symbol = resolveSymbol(coin, exchange)
           const enabled = coin[exchange].enabled
@@ -203,6 +207,7 @@ export const upsertActive = (
               set: { symbol, enabled }
             })
         }
+
         return rows
       }),
     catch: (cause) => toStoreUnavailable("upsertActive", cause, coin.cmcId)
@@ -222,7 +227,7 @@ export const upsertActive = (
  * `Active` sets `status = 'active'` (reason untouched); `Inactive` sets `status = 'inactive'`
  * and stores its `reason`. Publishers emit `CoinUpdated` after this resolves; subscribers
  * (ingest-sender) diff the event against running fibers. There is intentionally no delete
- * path — the legacy `destroy` (`findOneAndRemove`) is not ported.
+ * path — deactivation goes through `setStatus`, never removal.
  *
  * @param db - Drizzle database port (composition root injects the real client).
  * @param status - Domain lifecycle value (`CoinActive` / `CoinInactive`, carrying `cmcId`).
@@ -236,7 +241,11 @@ export const setStatus = (
     try: () =>
       db
         .update(activeCoins)
-        .set(status._tag === "Active" ? { status: "active" } : { status: "inactive", reason: status.reason })
+        .set(
+          Predicate.isTagged(status, "Active")
+            ? { status: "active" }
+            : { status: "inactive", reason: status.reason }
+        )
         .where(eq(activeCoins.cmcId, status.cmcId))
         .returning(),
     catch: (cause) => toStoreUnavailable("setStatus", cause, status.cmcId)
@@ -296,21 +305,26 @@ export const existsOnOther = (
  * @returns Drizzle insert row for `active_coins`.
  */
 export const toActiveCoinInsert = (coin: ActiveCoin): typeof activeCoins.$inferInsert => {
-  const flat: Record<string, boolean | string | number> = {
-    cmcId: coin.cmcId,
-    symbol: coin.symbol,
-    name: coin.name,
-    slug: coin.slug,
-    logo: coin.logo,
-    reason: coin.reason,
-    transferSpeed: coin.transferSpeed,
-    status: "active"
-  }
+  // Empty-init accumulator (same pattern as `listings` in `toActiveCoin`):
+  // keys come from `listingColumns`, total over `Exchange`.
+  const flat: Record<string, boolean | string | number> = {}
+
+  flat.cmcId = coin.cmcId
+  flat.symbol = coin.symbol
+  flat.name = coin.name
+  flat.slug = coin.slug
+  flat.logo = coin.logo
+  flat.reason = coin.reason
+  flat.transferSpeed = coin.transferSpeed
+  flat.status = "active"
+
   for (const exchange of Exchanges) {
     const keys = listingColumns[exchange]
+
     flat[keys.enabled] = coin[exchange].enabled
     flat[keys.alternate] = coin[exchange].alternate
   }
+
   // SAFETY: keys come from `listingColumns`, total over `Exchange` and checked against
   // `ActiveCoinRow` by `satisfies`; values match column types (booleans/strings/numbers).
   // `toActiveCoin` + `parseActiveCoin` validate the roundtrip on every read.

@@ -15,4 +15,4 @@ Rules:
 - `.vscode/settings.json`: exclude `repos/**`, `typescript.tsdk` → local lib. No `@typescript/native-preview`.
 - `infra/compose.yaml`: postgres:17 + redis:7 + rabbitmq:3-management + apps with `build:` contexts, healthchecks, `dev_network`. No `latest` without pin comment.
 - Drizzle: `drizzle.config.ts`, migrations dir, `db:generate/migrate` scripts.
-- Before finish: `pnpm i`, `pnpm check`, `docker compose config`, update `CONTEXT.md` + `TODO.md`.
+- Before finish: `pnpm i`, `pnpm check`, `docker compose config`.

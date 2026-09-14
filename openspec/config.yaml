@@ -1,24 +1,27 @@
 schema: spec-driven
 
 context: |
-  Project: rawr — Effect monorepo rewrite of ~/Tools (read-only legacy reference, do not edit).
-  Stack: effect@4.0.0-rc.113 only, @effect/platform + @effect/sql, Schema at all edges,
-    typescript@7.0.2 (tsgo), drizzle-orm@0.45.2 + drizzle-kit@0.31.10, Postgres 17,
-    pnpm ^11 + node ^24, Redis 7 + RabbitMQ 3 behind ports (v1).
-  Conventions: errors as values (Effect.fail TaggedError); parse don't validate;
-    no process.env sprawl (packages/config Schema); no secrets in logs (Redacted);
-    never deleteMany/clearDB — coin activate/deactivate only via CoinUpdated event + FiberMap diff;
-    Postgres snake_case via Drizzle pgTable; small diffs, one package/app per change.
-  Vendored ref: repos/effect is read-only idiom source (never import from it); capture idioms to agent-patterns/.
-  Docs of record: AGENTS.md (rules), CONTEXT.md (resume point), TODO.md (checklist), docs/plan.md (phases).
+  Project: rawr — crypto arbitrage signals across 15 exchanges.
+  Stack: effect (v4 RC line) + @effect/platform-node (+-shared) + @effect/sql-pg,
+    Schema at all edges; typescript native (tsgo); drizzle-orm + drizzle-kit,
+    Postgres; pnpm + node; Redis + RabbitMQ behind ports.
+    Exact versions live in pnpm-workspace.yaml (catalog) and infra/compose.yaml.
+  Conventions (checkable — enforce in every artifact):
+    - Decode untrusted input with Schema (decodeUnknown*) at every HTTP/WS/AMQP edge.
+    - Fail in the Effect channel with a TaggedError via Effect.fail; never throw.
+    - Secrets stay Redacted; never log or interpolate them.
+    - No process.env outside packages/config; no deleteMany/clearDB anywhere.
+      Coin activate/deactivate only via CoinUpdated event + FiberMap diff.
+    - Postgres columns are snake_case via Drizzle pgTable.
+  Vendored ref: repos/effect is the read-only idiom source (never import from it);
+    capture reusable idioms to agent-patterns/.
 
 rules:
   proposal:
-    - Scope to one package or one app per change.
-    - State which legacy ~/Tools behavior is replaced and what is explicitly out of scope.
+    - Scope to one coherent slice; it may span multiple related packages/apps that ship together.
+    - State the spread/signal behavior changed and what is explicitly out of scope.
   design:
     - Name the Effect Layers/ports, Schema boundaries, and event contracts (e.g. CoinUpdated, CrawlerReport).
     - Call out reconnect Schedule, Redacted secrets, and no-deleteMany compliance.
   tasks:
     - One verifiable step each: run pnpm check for the touched package + a runtime smoke assertion.
-    - End with updating CONTEXT.md + TODO.md and keeping git status clean.

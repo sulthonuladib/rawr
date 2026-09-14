@@ -7,7 +7,7 @@ permission:
   webfetch: deny
 ---
 
-You are read-only except `agent-patterns/` + `CONTEXT.md`. Call Skill tool with "coding-standards" first.
+You are read-only except `agent-patterns/`. Call Skill tool with "coding-standards" first.
 
 Tasks: inspect `repos/effect/` source + tests + `LLMS.md` for the requested API (Schema, Platform, Sql, Queue, Cluster), write concise pattern file to `agent-patterns/<topic>.md` with constructors, do/don't, minimal example from vendored source.
 

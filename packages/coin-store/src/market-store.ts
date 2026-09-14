@@ -1,22 +1,20 @@
 /**
  * `@rawr/coin-store/market-store` — `orderbook_snapshots` and `opportunities` repositories.
  *
- * Legacy shapes ported: per-exchange orderbook rows (`cmcId`, `buyPrice`/`sellPrice`,
- * `buyAmount`/`sellAmount` — see `~/Tools/exchange-sender-websocket/src/models/Orderbook.js`,
- * updated from `{ cmcId, asks, bids }` WS payloads) and arbitrage results (buy/sell prices +
- * amounts, buy/sell exchanges, `profitPercentage` in `toFixed(2)` string form — see
- * `~/Tools/potential/types.go` and `price-diff.service.js`).
+ * Orderbook rows per exchange (`cmcId`, `buyPrice`/`sellPrice`,
+ * `buyAmount`/`sellAmount`, updated from `{ cmcId, asks, bids }` WS payloads)
+ * and arbitrage results (buy/sell prices + amounts, buy/sell exchanges,
+ * `profitPercentage` in `toFixed(2)` string form).
  *
  * Two boundary notes:
  *
- * - `profitPercentage` is `numeric` in Postgres but a `String` in the domain (legacy wire
+ * - `profitPercentage` is `numeric` in Postgres but a `String` in the domain (wire
  *   format). The write path rejects non-numeric strings as `InvalidCoinError`; the read path
  *   stringifies the number, so trailing zeros normalize (`"0.40"` → `"0.4"`) while numeric
  *   equality is preserved.
  * - `listOpportunities` returns only unexpired rows (`expired_at > now`, most profitable
  *   first) — callers pass `now` explicitly so reads stay deterministic through real seams.
- *   Expiry itself follows `docs/plan.md` guardrails (scheduled job on `expired_at`), never
- *   `deleteMany`.
+ *   Expiry is a scheduled job on `expired_at`, never `deleteMany`.
  *
  * Errors are values (`Effect.fail` with domain `TaggedError`s), never `throw`.
  *
@@ -64,7 +62,7 @@ export interface ListOpportunitiesOptions {
  *
  * The ingest-receiver calls this per normalized `{ cmcId, asks, bids }` payload. Snapshots
  * are append-only: no upsert, no update, no delete — retention is a future scheduled job on
- * `captured_at`. `0` prices/amounts mean "missing" upstream (legacy `buyPrice != 0` guard).
+ * `captured_at`. `0` prices/amounts mean "missing" upstream (guards skip `buyPrice != 0` rows).
  *
  * @param db - Drizzle database port (composition root injects the real client).
  * @param tick - Parsed domain tick (exchange, coin, prices, amounts).
@@ -103,7 +101,7 @@ export const saveSnapshot = (
  * instead of reaching Postgres as `NaN`.
  *
  * @param db - Drizzle database port (composition root injects the real client).
- * @param opportunity - Parsed domain opportunity (legacy `toFixed(2)` profit format).
+ * @param opportunity - Parsed domain opportunity (`toFixed(2)` profit format).
  * @param expiredAt - When this opportunity expires (drives reader filtering + the expiry job).
  * @returns `void` on success, or `StoreUnavailable` / `InvalidCoinError`.
  */
@@ -113,6 +111,7 @@ export const saveOpportunity = (
   expiredAt: Date
 ): Effect.Effect<void, StoreUnavailable | InvalidCoinError> => {
   const profit = Number(opportunity.profitPercentage)
+
   return opportunity.profitPercentage.trim() === "" || !Number.isFinite(profit)
     ? Effect.fail(
       new InvalidCoinError({

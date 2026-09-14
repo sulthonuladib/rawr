@@ -2,8 +2,7 @@
  * `@rawr/domain/status` — coin lifecycle as a tagged union.
  *
  * Activation/deactivation happens only via the `CoinUpdated` event plus a
- * `FiberMap` diff (per `AGENTS.md`); this union is the status payload those
- * events carry.
+ * `FiberMap` diff; this union is the status payload those events carry.
  *
  * @module
  */
@@ -21,8 +20,7 @@ export class CoinActive extends Schema.TaggedClass<CoinActive>()("Active", {
 }) {}
 
 /**
- * A coin no longer tracked. `reason` mirrors the legacy `reason` field
- * (`""` when unset).
+ * A coin no longer tracked. `reason` is `""` when unset.
  */
 export class CoinInactive extends Schema.TaggedClass<CoinInactive>()("Inactive", {
   cmcId: CmcId,

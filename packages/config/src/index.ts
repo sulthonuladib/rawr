@@ -6,13 +6,6 @@
  * `loadConfig` from here instead of reading the environment directly, so
  * secrets stay `Redacted` and ports stay validated (`1–65535`) in one place.
  *
- * Legacy sources (read-only): `~/Tools/infra/compose.yaml` (service ports,
- * `REDIS_URL` / `AMQP_URL` / `POTENTIAL_HOST` wiring), per-service port
- * literals under `~/Tools` (`coin-lister` 4000, `ticker-cache` 4001, `exchange-sender` 3009,
- * `monitoring-api` 5001, `potential` 10000, `gate-proxy` 42069,
- * `signal-card-ui` nginx 5000), and the `POTENTIAL_HOST || "localhost"`
- * fallback in `galactus/index.ts` + `exchange-sender-websocket/src/utils/reset.js`.
- *
  * Errors are values: `loadConfig` fails with `ConfigError` (a
  * `Schema.TaggedError`), never `throw`. `Redacted` secrets never render into
  * logs (`String(redacted) === "<redacted>"`).
@@ -25,31 +18,28 @@ import { Config as EffectConfig, Effect, Redacted, Schema } from "effect"
 export const packageName = "@rawr/config" as const
 
 /**
- * Per-service HTTP ports, each read from its own env var with the legacy
- * port as default.
+ * Per-service HTTP ports, each read from its own env var with a default.
  *
- * Env vars: `COIN_ADMIN_API_PORT` (legacy `coin-lister` 4000),
- * `TICKER_CACHE_PORT` (4001), `INGEST_SENDER_PORT` (legacy
- * `exchange-sender` 3009), `CRAWLER_MONITOR_PORT` (legacy `monitoring-api`
- * 5001), `ARBITRAGE_ENGINE_PORT` (legacy `potential` 10000),
- * `GATE_PROXY_PORT` (legacy `gate-proxy` listens 42069, mapped as
- * `10001:42069`), `SIGNAL_CARD_PORT` (legacy `signal-card-ui` nginx 5000).
- * `ingest-receiver` takes no port (pure AMQP consumer).
+ * Env vars: `COIN_ADMIN_API_PORT` (4000), `TICKER_CACHE_PORT` (4001),
+ * `INGEST_SENDER_PORT` (3009), `CRAWLER_MONITOR_PORT` (5001),
+ * `ARBITRAGE_ENGINE_PORT` (10000), `GATE_PROXY_PORT` (42069),
+ * `SIGNAL_CARD_PORT` (5000). `ingest-receiver` takes no port (pure AMQP
+ * consumer).
  */
 export interface Ports {
-  /** `COIN_ADMIN_API_PORT`, default `4000` (legacy `coin-lister`). */
+  /** `COIN_ADMIN_API_PORT`, default `4000`. */
   readonly coinAdminApi: number
   /** `TICKER_CACHE_PORT`, default `4001`. */
   readonly tickerCache: number
-  /** `INGEST_SENDER_PORT`, default `3009` (legacy `exchange-sender`). */
+  /** `INGEST_SENDER_PORT`, default `3009`. */
   readonly ingestSender: number
-  /** `CRAWLER_MONITOR_PORT`, default `5001` (legacy `monitoring-api`). */
+  /** `CRAWLER_MONITOR_PORT`, default `5001`. */
   readonly crawlerMonitor: number
-  /** `ARBITRAGE_ENGINE_PORT`, default `10000` (legacy `potential`). */
+  /** `ARBITRAGE_ENGINE_PORT`, default `10000`. */
   readonly arbitrageEngine: number
-  /** `GATE_PROXY_PORT`, default `42069` (legacy `gate-proxy`). */
+  /** `GATE_PROXY_PORT`, default `42069`. */
   readonly gateProxy: number
-  /** `SIGNAL_CARD_PORT`, default `5000` (legacy `signal-card-ui` nginx). */
+  /** `SIGNAL_CARD_PORT`, default `5000`. */
   readonly signalCard: number
 }
 
@@ -71,16 +61,14 @@ export interface Config {
   /**
    * `REDIS_URL` (`Redacted`).
    *
-   * Defaults to `redis://localhost:6379`, matching the legacy
-   * `redis://localhost:6379` fallback and compose port `6379`.
+   * Defaults to `redis://localhost:6379`, matching compose port `6379`.
    */
   readonly redisUrl: Redacted.Redacted<string>
   /**
    * `AMQP_URL` (`Redacted`).
    *
    * Defaults to `amqp://guest:guest@localhost:5672`, matching compose
-   * (`RABBITMQ_DEFAULT_USER/PASS: rawr` in rawr, `guest:guest` upstream) and
-   * the legacy `amqp://localhost` fallback family.
+   * (`RABBITMQ_DEFAULT_USER/PASS: rawr` in rawr, `guest:guest` upstream).
    */
   readonly amqpUrl: Redacted.Redacted<string>
   /**
@@ -91,15 +79,14 @@ export interface Config {
    */
   readonly cmcApiKey: Redacted.Redacted<string>
   /**
-   * `POTENTIAL_HOST`, default `"localhost"` (legacy fallback in
-   * `galactus/index.ts` and `exchange-sender-websocket/src/utils/reset.js`;
-   * compose sets `potential` on the shared network).
+   * `POTENTIAL_HOST`, default `"localhost"` (compose sets `potential` on the
+   * shared network).
    *
    * Pair with `ports.arbitrageEngine` to reach the engine
    * (`http://${potentialHost}:${arbitrageEnginePort}`).
    */
   readonly potentialHost: string
-  /** Per-service HTTP ports (each with its legacy default). */
+  /** Per-service HTTP ports (each with its default). */
   readonly ports: Ports
 }
 
@@ -134,12 +121,12 @@ const amqpUrl = EffectConfig.Redacted("AMQP_URL").pipe(
 /** `CMC_API_KEY` descriptor: required redacted secret (no default). */
 const cmcApiKey = EffectConfig.Redacted("CMC_API_KEY")
 
-/** `POTENTIAL_HOST` descriptor: plain string with legacy `"localhost"` default. */
+/** `POTENTIAL_HOST` descriptor: plain string with `"localhost"` default. */
 const potentialHost = EffectConfig.String("POTENTIAL_HOST").pipe(
   EffectConfig.withDefault("localhost")
 )
 
-/** Per-service port descriptors, each range-checked with its legacy default. */
+/** Per-service port descriptors, each range-checked with its default. */
 const ports = EffectConfig.all({
   coinAdminApi: EffectConfig.Port("COIN_ADMIN_API_PORT").pipe(EffectConfig.withDefault(4000)),
   tickerCache: EffectConfig.Port("TICKER_CACHE_PORT").pipe(EffectConfig.withDefault(4001)),

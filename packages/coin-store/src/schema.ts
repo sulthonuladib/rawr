@@ -1,20 +1,20 @@
 /**
  * `@rawr/coin-store/schema` — Drizzle Postgres tables.
  *
- * Legacy source of truth (read-only): `~/Tools/coin-lister-service/src/models/ActiveCoin.js`
- * (Mongoose `active_coin` collection: `symbol`, `cmcId` unique, `name`, `slug`, `logo`,
- * `reason`/`transferSpeed` defaulting to `""`, plus per exchange a boolean flag and an
- * `<exchange>AlternateSymbol` string defaulting to `""`). This module ports that shape to
- * Postgres `snake_case` columns, one row per coin keyed by `cmc_id`, and adds the three
- * tables the services need: `exchange_symbols` (per-exchange routing projection),
- * `orderbook_snapshots` (append-only ticks), and `opportunities` (arbitrage results with
- * `expired_at` for the scheduled expiry job — see `docs/plan.md` guardrails).
+ * `active_coins`: one row per coin keyed by `cmc_id` (`symbol`, `cmcId`
+ * unique, `name`, `slug`, `logo`, `reason`/`transferSpeed` defaulting to
+ * `""`, plus per exchange a boolean flag and an `<exchange>AlternateSymbol`
+ * string defaulting to `""`), in Postgres `snake_case` columns — plus the
+ * three tables the services need: `exchange_symbols` (per-exchange routing
+ * projection), `orderbook_snapshots` (append-only ticks), and
+ * `opportunities` (arbitrage results with `expired_at` for the scheduled
+ * expiry job; rows are filtered by expiry, never deleted).
  *
- * Naming: Postgres columns are `snake_case` (see `CONTEXT.md` open questions — resolved
- * here as yes). The legacy camelCase `upbitUsdt` model field becomes the `upbit_usdt` /
- * `upbit_usdt_alternate_symbol` columns, matching the legacy AMQP queue name `upbit_usdt`
- * (`~/Tools/exchange-receiver-websocket/src/amqp.js`). Drizzle property keys stay camelCase
- * (`upbitUsdt`, `upbitUsdtAlternate`) so TypeScript call sites read naturally.
+ * Naming: Postgres columns are `snake_case`. The camelCase `upbitUsdt`
+ * model field becomes the `upbit_usdt` / `upbit_usdt_alternate_symbol`
+ * columns, matching the AMQP queue name `upbit_usdt`. Drizzle property keys
+ * stay camelCase (`upbitUsdt`, `upbitUsdtAlternate`) so TypeScript call
+ * sites read naturally.
  *
  * Rule: no `deleteMany` / `clearDB` anywhere in this package — rows are inserted or
  * upserted only. Coin activate/deactivate flows flip `active_coins.status`, never delete.
@@ -37,10 +37,10 @@ import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session"
 /**
  * Canonical row for one listed coin, keyed by CoinMarketCap id.
  *
- * Mirrors the legacy `ActiveCoin` Mongoose shape field-for-field (30 listing columns for
- * the 15 exchanges in legacy field order) plus a `status` lifecycle column (`"active"` /
- * `"inactive"`, default `"active"`). `reason` / `transferSpeed` keep the legacy `""`
- * default. The domain `ActiveCoin` nests each boolean/string pair as `{ enabled, alternate }`;
+ * 30 listing columns for the 15 exchanges in field order, plus a `status`
+ * lifecycle column (`"active"` / `"inactive"`, default `"active"`).
+ * `reason` / `transferSpeed` default to `""`. The domain `ActiveCoin` nests
+ * each boolean/string pair as `{ enabled, alternate }`;
  * `active-coins.ts` flattens/unflattens at the boundary and parses via domain Schemas.
  */
 export const activeCoins = pgTable("active_coins", {
@@ -117,8 +117,8 @@ export type ExchangeSymbolInsert = typeof exchangeSymbols.$inferInsert
  *
  * Written by the ingest-receiver from normalized `{ cmcId, asks, bids }` WS payloads (see
  * domain `OrderbookTick`); read by the arbitrage engine for the stream join. Prices/amounts
- * use `numeric` in `number` mode (legacy prices are floats); `0` means "missing" upstream,
- * matching the legacy `buyPrice != 0` guard. Rows are never updated or deleted here —
+ * use `numeric` in `number` mode; `0` means "missing" upstream (guards skip
+ * `buyPrice != 0` rows). Rows are never updated or deleted here —
  * retention is a future scheduled job on `captured_at`.
  */
 export const orderbookSnapshots = pgTable("orderbook_snapshots", {
@@ -141,12 +141,12 @@ export type OrderbookSnapshotInsert = typeof orderbookSnapshots.$inferInsert
 /**
  * Arbitrage opportunities between two exchanges for one coin.
  *
- * Written by the arbitrage engine when the spread clears its threshold (legacy default
- * `0.5`, plan target `≥ 0.1%` on 2M volume); `profit_percentage` is `numeric` because the
- * engine computes it as a number (the domain keeps the legacy `toFixed(2)` string form —
- * trailing zeros normalize on the roundtrip, numeric equality is preserved). Expiry follows
- * `docs/plan.md` guardrails: rows carry `expired_at` and a scheduled job filters them —
- * never `deleteMany`.
+ * Written by the arbitrage engine when the spread clears its threshold
+ * (`≥ 0.1%` on 2M volume); `profit_percentage` is `numeric` because the
+ * engine computes it as a number (the domain keeps the `toFixed(2)` string
+ * form — trailing zeros normalize on the roundtrip, numeric equality is
+ * preserved). Expiry: rows carry `expired_at` and a scheduled job filters
+ * them — never `deleteMany`.
  */
 export const opportunities = pgTable("opportunities", {
   id: serial("id").primaryKey(),

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Logging, tracing and LogId (replaces legacy crawler-logs queue)",
+  "description": "Logging, tracing and LogId over the crawler-logs queue",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

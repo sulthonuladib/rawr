@@ -1,7 +1,7 @@
 /**
  * `@rawr/coin-store` — Drizzle Postgres repositories.
  *
- * Phase 1 implementation: `pgTable` definitions for `active_coins`, `exchange_symbols`,
+ * `pgTable` definitions for `active_coins`, `exchange_symbols`,
  * `orderbook_snapshots`, and `opportunities` (snake_case, see `schema.ts`) plus repository
  * functions (`findActiveById` / `listActive` / `upsertActive` / `setStatus` / `existsOnOther`
  * in `active-coins.ts`; `saveSnapshot` / `saveOpportunity` / `listOpportunities` in
