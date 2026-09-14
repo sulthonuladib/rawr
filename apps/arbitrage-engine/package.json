@@ -4,16 +4,31 @@
   "private": true,
   "type": "module",
   "description": "Arbitrage engine — Stream join, 2M vol >=0.1% calc, upsert opportunity + WS push",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "dev": "tsc --watch -p tsconfig.json",
-    "test": "echo \"ok: no tests yet\""
+    "test": "vitest run --exclude '**/dist/**'",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@rawr/coin-admin-api": "workspace:*",
+    "@rawr/domain": "workspace:*",
+    "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@types/pg": "catalog:",
+    "drizzle-kit": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

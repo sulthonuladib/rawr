@@ -40,6 +40,8 @@ export { CoinActive, CoinInactive, CoinStatus } from "./status.js"
 
 export type { CoinStatusEncoded } from "./status.js"
 
+export { exchangeToSlug, slugToExchange } from "./exchanges.js"
+
 export {
   decodeOpportunity,
   decodeOrderbookTick,

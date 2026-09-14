@@ -1,9 +1,9 @@
 import { Effect, Schema } from "effect"
 import { afterAll, describe, expect, it } from "vitest"
-import { CmcId, parseOpportunity, parseOrderbookTick } from "@rawr/domain"
-import { listOpportunities, saveOpportunity, saveSnapshot } from "./exchange-store.js"
+import { CmcId, parseOpportunity } from "@rawr/domain"
+import { insertCrypto, insertListing } from "@rawr/coin-admin-api"
+import { listOpportunities, saveOpportunity } from "./opportunities.js"
 import { db, pool } from "./db.js"
-import { insertCrypto, insertListing } from "./fixtures.js"
 
 // Parsed (not asserted): decodeUnknownSync establishes the CmcId brand.
 const cmcId = Schema.decodeUnknownSync(CmcId)(920001)
@@ -14,25 +14,11 @@ afterAll(async () => {
   await pool.end()
 })
 
-describe("exchange snapshots and opportunities", () => {
-  it("round-trips a snapshot and live opportunities with expiry filtering", async () => {
+describe("exchange opportunities", () => {
+  it("lists live opportunities with expiry filtering", async () => {
     const cryptoId = await Effect.runPromise(insertCrypto(cmcId, "TST3"))
     await Effect.runPromise(insertListing(cryptoId, "binance", true))
     await Effect.runPromise(insertListing(cryptoId, "bybit", true))
-
-    const tick = await Effect.runPromise(
-      parseOrderbookTick({
-        cmcId,
-        exchange: "binance",
-        symbol: "TST3",
-        buyPrice: 100,
-        sellPrice: 101,
-        buyAmount: 5,
-        sellAmount: 5
-      })
-    )
-
-    await Effect.runPromise(saveSnapshot(db, tick, now))
 
     const live = await Effect.runPromise(
       parseOpportunity({
@@ -92,25 +78,5 @@ describe("exchange snapshots and opportunities", () => {
     )
 
     expect(error._tag).toBe("InvalidCoinError")
-  })
-
-  it("fails typed when the coin is missing", async () => {
-    const missing = Schema.decodeUnknownSync(CmcId)(929999)
-
-    const tick = await Effect.runPromise(
-      parseOrderbookTick({
-        cmcId: missing,
-        exchange: "binance",
-        symbol: "MISSING",
-        buyPrice: 1,
-        sellPrice: 1,
-        buyAmount: 1,
-        sellAmount: 1
-      })
-    )
-
-    const error = await Effect.runPromise(Effect.flip(saveSnapshot(db, tick, now)))
-
-    expect(error._tag).toBe("CoinNotFound")
   })
 })
