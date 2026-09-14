@@ -1,10 +1,3 @@
-/**
- * Fixture helpers for `@rawr/coin-store` repository tests.
- *
- * Inserts are idempotent (`onConflictDoNothing` + reselect) so reruns never
- * fail and no deletes are ever needed. Each test file uses its own
- * distinctive `cmcId` / chain-code range.
- */
 import { eq } from "drizzle-orm"
 import { Effect } from "effect"
 import { CmcId, Exchange, StoreUnavailable } from "@rawr/domain"
@@ -12,13 +5,9 @@ import { exchangeCryptocurrencies, cryptocurrencies, exchanges } from "./schema.
 import { exchangeToSlug } from "./exchanges.js"
 import { db } from "./db.js"
 
-/** Render an unknown driver failure safely (operation + message only, never secrets). */
 const describeCause = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
 
-/**
- * Insert a cryptocurrency fixture row (idempotent) and return its surrogate id.
- */
 export const insertCrypto = (cmcId: CmcId, symbol: string): Effect.Effect<number, StoreUnavailable> =>
   Effect.tryPromise({
     try: async () => {
@@ -45,9 +34,6 @@ export const insertCrypto = (cmcId: CmcId, symbol: string): Effect.Effect<number
       new StoreUnavailable({ message: `insertCrypto: postgres unavailable (${describeCause(cause)})` })
   })
 
-/**
- * Insert a listing fixture row (idempotent) and return its surrogate id.
- */
 export const insertListing = (
   cryptocurrencyId: number,
   exchange: Exchange,

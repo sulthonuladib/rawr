@@ -1,11 +1,3 @@
-/**
- * Boundary parse tests for the chain domain (`Chain`, `ListingChain`,
- * `TransferSpeed`).
- *
- * Pure Schema edges — no database. Valid shapes decode; corrupt rows fail as
- * `InvalidCoinError` in the Effect channel; `deriveTransferSpeed` covers the
- * unknown / available / unavailable cases from the spec.
- */
 import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 import { deriveTransferSpeed, parseChain, parseListingChain } from "./chain.js"
