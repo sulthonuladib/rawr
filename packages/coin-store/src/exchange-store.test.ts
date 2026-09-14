@@ -1,10 +1,3 @@
-/**
- * Repository tests for `exchange_snapshots` + `exchange_opportunities`.
- *
- * Live Postgres (`DATABASE_URL`, else the local default). Fixtures use the
- * 92000x `cmcId` range so files and reruns cannot collide; inserts are
- * idempotent and nothing is ever deleted.
- */
 import { Effect, Schema } from "effect"
 import { afterAll, describe, expect, it } from "vitest"
 import { CmcId, parseOpportunity, parseOrderbookTick } from "@rawr/domain"

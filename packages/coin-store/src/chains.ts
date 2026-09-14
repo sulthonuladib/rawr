@@ -1,22 +1,3 @@
-/**
- * `@rawr/coin-store/chains` — `chains` registry and
- * `exchange_cryptocurrency_chain` per-listing transfer flags, plus the derived
- * transfer-speed reader.
- *
- * - `upsertChain` / `listChains`: chain CRUD (upsert by `code`, update `name`).
- * - `upsertListingChain` / `updateListingChainFlags` / `listListingChains`:
- *   per-listing capabilities (exchange code/name overrides, withdraw/deposit
- *   flags) resolved through the listing graph (`cmcId` + `Exchange` →
- *   `exchange_cryptocurrency.id`, `chainCode` → `chains.id`).
- * - `getTransferSpeed`: derived transfer speed for one listing — computed from
- *   its chain rows at read time via the domain `deriveTransferSpeed` pure
- *   function (no cached string is ever stored).
- *
- * Errors are values (`Effect.fail` with domain `TaggedError`s), never `throw`.
- * Every row is parsed through the domain Schemas before it reaches callers.
- *
- * @module
- */
 import { and, eq } from "drizzle-orm"
 import { Effect } from "effect"
 import {
@@ -42,57 +23,28 @@ import {
 } from "./schema.js"
 import { exchangeToSlug } from "./exchanges.js"
 
-/** Render an unknown driver failure safely (operation + message only, never secrets). */
 const describeCause = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
 
-/**
- * Take the first row of a single-row query result, or fail with the given error.
- *
- * Naming the step keeps each repository a two-`flatMap` pipeline: a ternary
- * returning `Effect.fail(...) | Effect.succeed(...)` does not unify under
- * `flatMap`, so the branches fuse through this helper's explicit `E` instead.
- */
 const firstRowOr = <A, E>(rows: ReadonlyArray<A>, fail: () => E): Effect.Effect<A, E> => {
   const row = rows[0]
 
   return row === undefined ? Effect.fail(fail()) : Effect.succeed(row)
 }
 
-/**
- * Input for `upsertListingChain` / `updateListingChainFlags` — identifies one
- * (listing, chain) pair plus its transfer facts.
- */
 export interface ListingChainInput {
-  /** Branded CoinMarketCap id (resolves to the coin, then the listing). */
   readonly cmcId: CmcId
-  /** Domain exchange (maps to the DB slug at the boundary). */
   readonly exchange: Exchange
-  /** Canonical chain code (must already exist in `chains`). */
   readonly chainCode: string
-  /** The exchange's spelling of the chain code. */
   readonly exchangeChainCode: string
-  /** Optional exchange spelling of the chain name (`""` = no override). */
   readonly exchangeChainName: string
-  /** Whether withdrawals are enabled on this listing+chain. */
   readonly withdrawEnabled: boolean
-  /** Whether deposits are enabled on this listing+chain. */
   readonly depositEnabled: boolean
 }
 
-/**
- * Parse one `chains` row into the domain `Chain`.
- */
 const toChain = (row: { readonly code: string; readonly name: string }): Effect.Effect<Chain, InvalidCoinError> =>
   parseChain({ code: row.code, name: row.name })
 
-/**
- * Parse one `exchange_cryptocurrency_chain` row into the domain `ListingChain`.
- *
- * `exchange_chain_name` is nullable in Postgres (`null` = no override) and
- * normalizes to `""` in the domain (avoiding `exactOptionalPropertyTypes`
- * friction).
- */
 const toListingChain = (row: {
   readonly chainCode: string
   readonly exchangeChainCode: string
@@ -108,12 +60,6 @@ const toListingChain = (row: {
     depositEnabled: row.depositEnabled
   })
 
-/**
- * Resolve a listing id from its domain identity (`cmcId` + `Exchange`).
- *
- * @returns the surrogate `exchange_cryptocurrency.id`, or `CoinNotFound` when
- * the coin or its listing on that exchange does not exist.
- */
 const resolveListingId = (
   db: Db,
   operation: string,
@@ -143,12 +89,6 @@ const resolveListingId = (
     Effect.map((row) => row.id)
   )
 
-/**
- * Resolve a chain id from its canonical code.
- *
- * @returns the surrogate `chains.id`, or `InvalidCoinError` when the code is
- * unknown (upsert the chain first).
- */
 const resolveChainId = (
   db: Db,
   operation: string,
@@ -165,13 +105,6 @@ const resolveChainId = (
     Effect.map((row) => row.id)
   )
 
-/**
- * Insert a chain or update its name when `code` already exists.
- *
- * @param db - Drizzle database port (composition root injects the real client).
- * @param chain - Parsed domain chain to persist.
- * @returns The persisted chain, or `StoreUnavailable` / `InvalidCoinError`.
- */
 export const upsertChain = (
   db: Db,
   chain: Chain
@@ -196,12 +129,6 @@ export const upsertChain = (
     )
   )
 
-/**
- * List all chains, `code` ascending.
- *
- * @param db - Drizzle database port (composition root injects the real client).
- * @returns Parsed chains, or `StoreUnavailable` / `InvalidCoinError`.
- */
 export const listChains = (db: Db): Effect.Effect<Array<Chain>, StoreUnavailable | InvalidCoinError> =>
   Effect.tryPromise({
     try: () => db.select().from(chains).orderBy(chains.code),
@@ -209,18 +136,6 @@ export const listChains = (db: Db): Effect.Effect<Array<Chain>, StoreUnavailable
       new StoreUnavailable({ message: `listChains: postgres unavailable (${describeCause(cause)})` })
   }).pipe(Effect.flatMap((rows) => Effect.forEach(rows, toChain)))
 
-/**
- * Insert or update one (listing, chain) capability row.
- *
- * Resolves the listing (`cmcId` + `Exchange`) and the chain (`chainCode`),
- * then upserts the flags plus the exchange code/name overrides. Missing
- * listings fail as `CoinNotFound`; unknown chain codes fail as
- * `InvalidCoinError` (upsert the chain first).
- *
- * @param db - Drizzle database port (composition root injects the real client).
- * @param input - The (listing, chain) pair plus its transfer facts.
- * @returns The persisted `ListingChain`, or `CoinNotFound` / `StoreUnavailable` / `InvalidCoinError`.
- */
 export const upsertListingChain = (
   db: Db,
   input: ListingChainInput
@@ -280,18 +195,6 @@ export const upsertListingChain = (
     )
   )
 
-/**
- * Update withdraw/deposit flags for one (listing, chain) row.
- *
- * Code/name overrides are untouched — use `upsertListingChain` to change them.
- * A miss fails as `CoinNotFound` (unknown listing) or `InvalidCoinError`
- * (unknown chain code / missing row).
- *
- * @param db - Drizzle database port (composition root injects the real client).
- * @param input - The (listing, chain) pair plus the new flags (code/name
- * fields are used only for resolution, not updated).
- * @returns The updated `ListingChain`, or `CoinNotFound` / `StoreUnavailable` / `InvalidCoinError`.
- */
 export const updateListingChainFlags = (
   db: Db,
   input: ListingChainInput
@@ -346,14 +249,6 @@ export const updateListingChainFlags = (
     )
   )
 
-/**
- * List one listing's chain rows (each with its canonical code).
- *
- * @param db - Drizzle database port (composition root injects the real client).
- * @param cmcId - Branded CoinMarketCap id.
- * @param exchange - Domain exchange.
- * @returns Parsed `ListingChain` rows, or `CoinNotFound` / `StoreUnavailable` / `InvalidCoinError`.
- */
 export const listListingChains = (
   db: Db,
   cmcId: CmcId,
@@ -380,20 +275,6 @@ export const listListingChains = (
     )
   )
 
-/**
- * Derived transfer-speed reader for one listing.
- *
- * Reads the listing's chain rows and computes speed via the domain
- * `deriveTransferSpeed` pure function: `"unknown"` when no chain rows exist,
- * `"available"` when any chain is fully enabled, else `"unavailable"`. A
- * missing listing fails as `CoinNotFound` (unknown coins have no speed, they
- * are not `"unknown"`).
- *
- * @param db - Drizzle database port (composition root injects the real client).
- * @param cmcId - Branded CoinMarketCap id.
- * @param exchange - Domain exchange.
- * @returns The derived speed, or `CoinNotFound` / `StoreUnavailable` / `InvalidCoinError`.
- */
 export const getTransferSpeed = (
   db: Db,
   cmcId: CmcId,

@@ -1,10 +1,3 @@
-/**
- * Repository tests for `chains` + `exchange_cryptocurrency_chain`.
- *
- * Live Postgres (`DATABASE_URL`, else the local default). Fixtures use the
- * 91000x `cmcId` range and `TS…` chain codes so files and reruns cannot
- * collide; inserts are idempotent and nothing is ever deleted.
- */
 import { Effect, Schema } from "effect"
 import { afterAll, describe, expect, it } from "vitest"
 import { CmcId } from "@rawr/domain"

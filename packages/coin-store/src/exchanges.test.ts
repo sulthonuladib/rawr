@@ -1,9 +1,3 @@
-/**
- * Tests for the DB slug ↔ domain exchange mapping.
- *
- * Pure mapping — no database. Covers the one divergent entry in both
- * directions plus the unknown-slug failure.
- */
 import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 import { exchangeToSlug, slugToExchange } from "./exchanges.js"
