@@ -24,6 +24,11 @@ catalog:
   # Drizzle — exact per AGENTS.md.
   drizzle-orm: 0.45.2
   drizzle-kit: 0.31.10
+  # Postgres driver for drizzle-kit migrate (tooling only).
+  pg: 8.23.0
+  "@types/pg": 8.23.1
+  # Vitest for boundary + repository tests (dev/test only).
+  vitest: 5.0.0
   # Node types for Node 24 (tooling only: drizzle.config.ts, scripts).
   "@types/node": 24.13.4
   # Oxlint + JS plugin runtime (tooling only: lint). Pinned in lockstep —

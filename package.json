@@ -28,6 +28,7 @@
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",
     "oxlint": "catalog:",
+    "pg": "catalog:",
     "typescript": "catalog:"
   }
 }

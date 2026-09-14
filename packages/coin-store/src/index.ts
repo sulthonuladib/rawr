@@ -1,16 +1,21 @@
 /**
- * `@rawr/coin-store` — Drizzle Postgres repositories.
+ * `@rawr/coin-store` — Drizzle Postgres repositories (relational).
  *
- * `pgTable` definitions for `active_coins`, `exchange_symbols`,
- * `orderbook_snapshots`, and `opportunities` (snake_case, see `schema.ts`) plus repository
- * functions (`findActiveById` / `listActive` / `upsertActive` / `setStatus` / `existsOnOther`
- * in `active-coins.ts`; `saveSnapshot` / `saveOpportunity` / `listOpportunities` in
- * `market-store.ts`).
+ * `pgTable` definitions for `cryptocurrencies`, `exchanges`,
+ * `exchange_cryptocurrency`, `chains`, `exchange_cryptocurrency_chain`
+ * (snake_case, see `schema.ts`) plus `exchange_snapshots` and
+ * `exchange_opportunities` (FK-backed, indexed) and repository functions
+ * (`saveSnapshot` / `saveOpportunity` / `listOpportunities` in
+ * `exchange-store.ts`; `upsertChain` / `listChains` / `upsertListingChain` /
+ * `updateListingChainFlags` / `listListingChains` / `getTransferSpeed` in
+ * `chains.ts`; `exchangeToSlug` / `slugToExchange` in `exchanges.ts`).
+ *
+ * There is no coin repository in this package — services query the tables
+ * directly for what they need.
  *
  * Rules: every function returns an `Effect` with domain `TaggedError`s (`CoinNotFound`,
  * `StoreUnavailable`, `InvalidCoinError`) — never `throw`. Every row is parsed via domain
- * Schemas before it reaches callers. Never `deleteMany` / `clearDB` here — coin
- * activate/deactivate flows only via the `CoinUpdated` event plus `setStatus`. The
+ * Schemas before it reaches callers. Never `deleteMany` / `clearDB` here. The
  * composition root builds the `Db` client from `packages/config` `databaseUrl` and injects it.
  *
  * @module
@@ -21,46 +26,63 @@ export const packageName = "@rawr/coin-store" as const
 
 /** Drizzle tables, row types, full schema, and the `Db` port. */
 export {
-  activeCoins,
-  exchangeSymbols,
-  opportunities,
-  orderbookSnapshots,
+  chains,
+  cryptocurrencies,
+  cryptocurrencyStatusEnum,
+  EXCHANGE_SEED,
+  exchangeCryptocurrencies,
+  exchangeCryptocurrencyChains,
+  exchangeOpportunities,
+  exchanges,
+  exchangeSnapshots,
   schema
 } from "./schema.js"
 
 /** Drizzle row types (infrastructure shapes — parse into domain types before use). */
 export type {
-  ActiveCoinInsert,
-  ActiveCoinRow,
+  ChainInsert,
+  ChainRow,
+  CryptocurrencyInsert,
+  CryptocurrencyRow,
+  CryptocurrencyStatusValue,
   Db,
-  ExchangeSymbolInsert,
-  ExchangeSymbolRow,
-  OpportunityInsert,
-  OpportunityRow,
-  OrderbookSnapshotInsert,
-  OrderbookSnapshotRow
+  ExchangeCryptocurrencyChainInsert,
+  ExchangeCryptocurrencyChainRow,
+  ExchangeCryptocurrencyInsert,
+  ExchangeCryptocurrencyRow,
+  ExchangeInsert,
+  ExchangeOpportunityInsert,
+  ExchangeOpportunityRow,
+  ExchangeRow,
+  ExchangeSnapshotInsert,
+  ExchangeSnapshotRow
 } from "./schema.js"
 
-/** `active_coins` repository: find / list / upsert / lifecycle / cross-exchange check. */
-export {
-  existsOnOther,
-  findActiveById,
-  listActive,
-  setStatus,
-  toActiveCoin,
-  toActiveCoinInsert,
-  upsertActive
-} from "./active-coins.js"
+/** DB slug ↔ domain exchange mapping. */
+export { exchangeToSlug, slugToExchange } from "./exchanges.js"
 
 /** Snapshots + opportunities repository. */
 export {
   listOpportunities,
   saveOpportunity,
   saveSnapshot
-} from "./market-store.js"
+} from "./exchange-store.js"
 
-/** Market-store input/output shapes. */
+/** Exchange-store input/output shapes. */
 export type {
   ListOpportunitiesOptions,
   StoredOpportunity
-} from "./market-store.js"
+} from "./exchange-store.js"
+
+/** Chain registry + per-listing flags + derived transfer speed. */
+export {
+  getTransferSpeed,
+  listChains,
+  listListingChains,
+  updateListingChainFlags,
+  upsertChain,
+  upsertListingChain
+} from "./chains.js"
+
+/** Chain input shape. */
+export type { ListingChainInput } from "./chains.js"

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared domain Schemas and errors (CmcId, ActiveCoin, CoinUpdated, ...)",
+  "description": "Shared domain Schemas and errors (CmcId, Exchange, Chain, CoinUpdated, ...)",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,12 +14,13 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "dev": "tsc --watch -p tsconfig.json",
-    "test": "echo \"ok: no tests yet\""
+    "test": "vitest run --exclude '**/dist/**'"
   },
   "dependencies": {
     "effect": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
