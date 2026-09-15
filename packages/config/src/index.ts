@@ -25,6 +25,11 @@ export class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError"
   message: Schema.String
 }) {}
 
+export interface CoinAdminApiConfig {
+  readonly port: number
+  readonly host: string
+}
+
 const databaseUrl = EffectConfig.Redacted("DATABASE_URL").pipe(
   EffectConfig.withDefault(Redacted.make("postgres://rawr:rawr@localhost:5433/rawr"))
 )
@@ -43,8 +48,14 @@ const potentialHost = EffectConfig.String("POTENTIAL_HOST").pipe(
   EffectConfig.withDefault("localhost")
 )
 
+const coinAdminApiPort = EffectConfig.Port("COIN_ADMIN_API_PORT").pipe(EffectConfig.withDefault(4100))
+
+const coinAdminApiHost = EffectConfig.String("COIN_ADMIN_API_HOST").pipe(
+  EffectConfig.withDefault("0.0.0.0")
+)
+
 const ports = EffectConfig.all({
-  coinAdminApi: EffectConfig.Port("COIN_ADMIN_API_PORT").pipe(EffectConfig.withDefault(4100)),
+  coinAdminApi: coinAdminApiPort,
   tickerCache: EffectConfig.Port("TICKER_CACHE_PORT").pipe(EffectConfig.withDefault(4101)),
   ingestSender: EffectConfig.Port("INGEST_SENDER_PORT").pipe(EffectConfig.withDefault(3109)),
   crawlerMonitor: EffectConfig.Port("CRAWLER_MONITOR_PORT").pipe(EffectConfig.withDefault(5101)),
@@ -65,3 +76,10 @@ const configDescriptor = EffectConfig.all({
 export const loadConfig: Effect.Effect<Config, ConfigError> = configDescriptor.pipe(
   Effect.mapError((cause) => new ConfigError({ message: cause.message }))
 )
+
+// Narrow loader for booting the admin API without the credentials the full
+// Config requires (e.g. CMC_API_KEY, which this service never uses).
+export const loadCoinAdminApiConfig: Effect.Effect<CoinAdminApiConfig, ConfigError> =
+  EffectConfig.all({ port: coinAdminApiPort, host: coinAdminApiHost }).pipe(
+    Effect.mapError((cause) => new ConfigError({ message: cause.message }))
+  )

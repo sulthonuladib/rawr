@@ -1,6 +1,10 @@
-import { Effect, Schema } from "effect"
+import { Effect, Match, Schema } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientError } from "effect/unstable/http"
+import { HttpApiClient } from "effect/unstable/httpapi"
 import { AlternateSymbol, Chain, CmcId, Exchange, ListingChain } from "@rawr/domain"
 import { exchangeToSlug } from "@rawr/domain"
+import { Api } from "./api.js"
+import type { BadRequest, NotFound, Unavailable } from "./api.js"
 import { Cryptocurrency } from "./cryptocurrency.js"
 import type { CoinStatusValue, UpsertCoinInput } from "./cryptocurrency.js"
 import { ExchangeInfo } from "./exchange.js"
@@ -25,18 +29,6 @@ export class ClientError extends Schema.TaggedError<ClientError>()("ClientError"
   status: Schema.optional(Schema.Int)
 }) {}
 
-const ErrorBody = Schema.Struct({ error: Schema.String })
-
-const CoinsBody = Schema.Array(Cryptocurrency)
-
-const ExchangesBody = Schema.Array(ExchangeInfo)
-
-const ListingsBody = Schema.Array(Listing)
-
-const ChainsBody = Schema.Array(Chain)
-
-const ListingChainsBody = Schema.Array(ListingChain)
-
 const describeCause = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
 
@@ -54,6 +46,18 @@ export interface ListListingsQuery {
 export interface PatchListingInput {
   readonly enabled?: boolean | undefined
   readonly alternateSymbol?: AlternateSymbol | undefined
+}
+
+interface MutableListingsApiQuery {
+  cmcId?: CmcId
+  exchange?: string
+  enabled?: "true" | "false"
+}
+
+interface ListingsApiQuery {
+  readonly cmcId?: CmcId
+  readonly exchange?: string
+  readonly enabled?: "true" | "false"
 }
 
 export interface CoinAdminClient {
@@ -92,120 +96,161 @@ export interface CoinAdminClient {
   ) => Effect.Effect<ListingChain, ClientError>
 }
 
-const toClientError = (message: string, status?: number | undefined): ClientError =>
-  status === undefined ? new ClientError({ message }) : new ClientError({ message, status })
+type ClientFailure =
+  | BadRequest
+  | NotFound
+  | Unavailable
+  | HttpClientError.HttpClientError
+  | Schema.SchemaError
+
+// Failures the derived client cannot decode into the Api envelope (transport
+// breakdowns, undeclared statuses, undecodable bodies) still surface as
+// ClientError, keeping the status when the transport reports one.
+const statusFailure = (status: number): ClientError =>
+  new ClientError({ message: `request failed with status ${status}`, status })
+
+const fallbackError = (cause: unknown): ClientError => {
+  if (HttpClientError.isHttpClientError(cause)) {
+    return Match.value(cause.reason).pipe(
+      Match.tag("TransportError", (reason) =>
+        new ClientError({ message: `request failed: ${describeCause(reason.cause)}` })),
+      Match.tags({
+        StatusCodeError: (reason: HttpClientError.StatusCodeError) =>
+          statusFailure(reason.response.status),
+        DecodeError: (reason: HttpClientError.DecodeError) => statusFailure(reason.response.status)
+      }),
+      Match.orElse((reason) => new ClientError({ message: describeCause(reason) }))
+    )
+  }
+
+  return new ClientError({ message: describeCause(cause) })
+}
 
 export const makeCoinAdminClient = (options: CoinAdminClientOptions): CoinAdminClient => {
-  const fetchFn = options.fetchFn ?? fetch
   const baseUrl = options.baseUrl.replace(/\/$/, "")
 
-  const readErrorBody = (response: Response): Effect.Effect<string, ClientError> =>
-    Effect.gen(function*() {
-      const json: unknown = yield* Effect.tryPromise({
-        try: () => response.json(),
-        catch: (cause) =>
-          toClientError(`request failed with status ${response.status}: ${describeCause(cause)}`, response.status)
-      })
+  const apiClient = HttpApiClient.make(Api, { baseUrl })
 
-      const decoded = yield* Schema.decodeUnknownEffect(ErrorBody)(json).pipe(
-        Effect.mapError(() => toClientError(`request failed with status ${response.status}`, response.status))
-      )
+  const provideFetch = <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    options.fetchFn === undefined
+      ? self
+      : Effect.provideService(self, FetchHttpClient.Fetch, options.fetchFn)
 
-      return decoded.error
-    })
+  const serve = <A>(
+    self: Effect.Effect<A, ClientFailure, HttpClient.HttpClient>
+  ): Effect.Effect<A, ClientError> =>
+    self.pipe(
+      Effect.catchTags(
+        {
+          BadRequest: (error: BadRequest) =>
+            Effect.fail(new ClientError({ message: error.error, status: 400 })),
+          NotFound: (error: NotFound) =>
+            Effect.fail(new ClientError({ message: error.error, status: 404 })),
+          Unavailable: (error: Unavailable) =>
+            Effect.fail(new ClientError({ message: error.error, status: 503 }))
+        },
+        (remaining) => Effect.fail(fallbackError(remaining))
+      ),
+      Effect.provide(FetchHttpClient.layer),
+      provideFetch
+    )
 
-  const requestJson = <S extends Schema.Constraint & { readonly DecodingServices: never }>(
-    path: string,
-    init: RequestInit,
-    schema: S
-  ): Effect.Effect<S["Type"], ClientError> =>
-    Effect.gen(function*() {
-      const response = yield* Effect.tryPromise({
-        try: () => fetchFn(`${baseUrl}${path}`, init),
-        catch: (cause) => toClientError(`request failed: ${describeCause(cause)}`)
-      })
-
-      if (!response.ok) {
-        const message = yield* readErrorBody(response)
-
-        return yield* Effect.fail(toClientError(message, response.status))
-      }
-
-      const json: unknown = yield* Effect.tryPromise({
-        try: () => response.json(),
-        catch: (cause) => toClientError(`unreadable response body: ${describeCause(cause)}`, response.status)
-      })
-
-      return yield* Schema.decodeUnknownEffect(schema)(json).pipe(
-        Effect.mapError((cause) => toClientError(`undecodable response body: ${describeCause(cause)}`, response.status))
-      )
-    })
-
-  const jsonInit = (method: string, body: string): RequestInit => ({
-    method,
-    headers: { "content-type": "application/json" },
-    body
+  const listingParams = (cmcId: CmcId, exchange: Exchange) => ({
+    cmcId,
+    exchange: exchangeToSlug(exchange)
   })
 
-  const listingPath = (cmcId: CmcId, exchange: Exchange): string =>
-    `/listings/${cmcId}/${exchangeToSlug(exchange)}`
-
-  const toQuery = (query: ListListingsQuery): string => {
-    const params = new URLSearchParams()
+  const toListingsQuery = (query: ListListingsQuery): ListingsApiQuery => {
+    const result: MutableListingsApiQuery = {}
 
     if (query.cmcId !== undefined) {
-      params.set("cmcId", String(query.cmcId))
+      result.cmcId = query.cmcId
     }
 
     if (query.exchange !== undefined) {
-      params.set("exchange", exchangeToSlug(query.exchange))
+      result.exchange = exchangeToSlug(query.exchange)
     }
 
     if (query.enabled !== undefined) {
-      params.set("enabled", String(query.enabled))
+      result.enabled = query.enabled ? "true" : "false"
     }
 
-    const text = params.toString()
-
-    return text === "" ? "" : `?${text}`
+    return result
   }
 
   return {
     listCoins: (status) =>
-      requestJson(status === undefined ? "/coins" : `/coins?status=${status}`, {}, CoinsBody),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Coins.listCoins({ query: status === undefined ? {} : { status } }))
+      ),
     upsertCoin: (input) =>
-      requestJson(`/coins/${input.cmcId}`, jsonInit("PUT", JSON.stringify({
-        symbol: input.symbol,
-        name: input.name,
-        slug: input.slug,
-        logo: input.logo
-      })), Cryptocurrency),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Coins.upsertCoin({
+            params: { cmcId: input.cmcId },
+            payload: { symbol: input.symbol, name: input.name, slug: input.slug, logo: input.logo }
+          }))
+      ),
     setCoinStatus: (cmcId, status, reason) =>
-      requestJson(`/coins/${cmcId}/status`, jsonInit("PATCH", JSON.stringify({ status, reason })), Cryptocurrency),
-    listExchanges: () => requestJson("/exchanges", {}, ExchangesBody),
-    getExchange: (exchange) => requestJson(`/exchanges/${exchangeToSlug(exchange)}`, {}, ExchangeInfo),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Coins.setCoinStatus({ params: { cmcId }, payload: { status, reason } }))
+      ),
+    listExchanges: () => serve(Effect.flatMap(apiClient, (client) => client.Exchanges.listExchanges({}))),
+    getExchange: (exchange) =>
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Exchanges.getExchange({ params: { exchange: exchangeToSlug(exchange) } }))
+      ),
     listListings: (query) =>
-      requestJson(query === undefined ? "/listings" : `/listings${toQuery(query)}`, {}, ListingsBody),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Listings.listListings({ query: toListingsQuery(query ?? {}) }))
+      ),
     patchListing: (cmcId, exchange, input) =>
-      requestJson(listingPath(cmcId, exchange), jsonInit("PATCH", JSON.stringify(input)), Listing),
-    listChains: () => requestJson("/chains", {}, ChainsBody),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Listings.patchListing({
+            params: listingParams(cmcId, exchange),
+            payload: { enabled: input.enabled, alternateSymbol: input.alternateSymbol }
+          }))
+      ),
+    listChains: () => serve(Effect.flatMap(apiClient, (client) => client.Chains.listChains({}))),
     createChain: (code, name) =>
-      requestJson("/chains", jsonInit("POST", JSON.stringify({ code, name })), Chain),
+      serve(
+        Effect.flatMap(apiClient, (client) => client.Chains.createChain({ payload: { code, name } }))
+      ),
     listListingChains: (cmcId, exchange) =>
-      requestJson(`${listingPath(cmcId, exchange)}/chains`, {}, ListingChainsBody),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Chains.listListingChains({ params: listingParams(cmcId, exchange) }))
+      ),
     upsertListingChain: (input) =>
-      requestJson(`${listingPath(input.cmcId, input.exchange)}/chains`, jsonInit("POST", JSON.stringify({
-        chainCode: input.chainCode,
-        exchangeChainCode: input.exchangeChainCode,
-        exchangeChainName: input.exchangeChainName,
-        withdrawEnabled: input.withdrawEnabled,
-        depositEnabled: input.depositEnabled
-      })), ListingChain),
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Chains.upsertListingChain({
+            params: listingParams(input.cmcId, input.exchange),
+            payload: {
+              chainCode: input.chainCode,
+              exchangeChainCode: input.exchangeChainCode,
+              exchangeChainName: input.exchangeChainName,
+              withdrawEnabled: input.withdrawEnabled,
+              depositEnabled: input.depositEnabled
+            }
+          }))
+      ),
     updateListingChainFlags: (input) =>
-      requestJson(`${listingPath(input.cmcId, input.exchange)}/chains`, jsonInit("PATCH", JSON.stringify({
-        chainCode: input.chainCode,
-        withdrawEnabled: input.withdrawEnabled,
-        depositEnabled: input.depositEnabled
-      })), ListingChain)
+      serve(
+        Effect.flatMap(apiClient, (client) =>
+          client.Chains.updateListingChainFlags({
+            params: listingParams(input.cmcId, input.exchange),
+            payload: {
+              chainCode: input.chainCode,
+              withdrawEnabled: input.withdrawEnabled,
+              depositEnabled: input.depositEnabled
+            }
+          }))
+      )
   }
 }

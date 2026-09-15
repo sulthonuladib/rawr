@@ -1,22 +1,16 @@
-import { Effect, Match, Schema } from "effect"
-import { HttpBody, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { Effect, Layer } from "effect"
+import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi"
 import {
-  AlternateSymbol,
-  Chain,
-  CmcId,
   CoinNotFound,
   InvalidCoinError,
-  ListingChain,
   parseChain,
-  slugToExchange,
-  StoreUnavailable,
-  Symbol
+  slugToExchange
 } from "@rawr/domain"
-import { Cryptocurrency } from "./cryptocurrency.js"
+import { Api, badRequest, notFound, storeUnavailable } from "./api.js"
 import { CoinAdmin } from "./service.js"
 import { db } from "./db.js"
-import { ExchangeInfo, getExchange, listExchanges } from "./exchange.js"
-import { getListing, Listing, listListings, setAlternateSymbol, setListingEnabled } from "./listings.js"
+import { getExchange, listExchanges } from "./exchange.js"
+import { getListing, listListings, setAlternateSymbol, setListingEnabled } from "./listings.js"
 import type { ListListingsFilter } from "./listings.js"
 import {
   listChains,
@@ -25,336 +19,155 @@ import {
   upsertChain,
   upsertListingChain
 } from "./chains.js"
-import type { Exchange } from "@rawr/domain"
 
-export type ApiError = CoinNotFound | StoreUnavailable | InvalidCoinError
+export type { ApiError } from "./api.js"
 
-const describeCause = (cause: unknown): string =>
-  cause instanceof Error ? cause.message : String(cause)
+// Today's `apiErrorResponse` mapping: validation failures are 400 with their
+// message, unknown coins/listings are 404 with their message, and store
+// details stay hidden behind 503 "store unavailable". Handlers stay in domain
+// errors until the edge, then catchTags narrows each endpoint to exactly the
+// declared errors it can produce.
+const readErrors = {
+  StoreUnavailable: () => Effect.fail(storeUnavailable()),
+  InvalidCoinError: (error: InvalidCoinError) => Effect.fail(badRequest(error.message))
+} as const
 
-const CmcIdFromString = Schema.decodeTo(CmcId)(Schema.NumberFromString)
+const writeErrors = {
+  ...readErrors,
+  CoinNotFound: (error: CoinNotFound) => Effect.fail(notFound(error.message))
+} as const
 
-const CmcIdPath = Schema.Struct({ cmcId: CmcIdFromString })
+const CoinsLive = HttpApiBuilder.group(Api, "Coins", (handlers) =>
+  handlers.handleAll({
+    listCoins: ({ query }) =>
+      Effect.gen(function*() {
+        const admin = yield* CoinAdmin
 
-const CoinStatusBody = Schema.Struct({
-  status: Schema.Literals(["active", "inactive"]),
-  reason: Schema.String
-})
+        return yield* admin.listCoins(query.status)
+      }).pipe(Effect.catchTags(readErrors)),
+    upsertCoin: ({ params, payload }) =>
+      Effect.gen(function*() {
+        const admin = yield* CoinAdmin
 
-const UpsertCoinBody = Schema.Struct({
-  symbol: Symbol,
-  name: Schema.NonEmptyString,
-  slug: Schema.NonEmptyString,
-  logo: Schema.String
-})
+        return yield* admin.upsertCoin({
+          cmcId: params.cmcId,
+          symbol: payload.symbol,
+          name: payload.name,
+          slug: payload.slug,
+          logo: payload.logo
+        })
+      }).pipe(Effect.catchTags(readErrors)),
+    setCoinStatus: ({ params, payload }) =>
+      Effect.gen(function*() {
+        const admin = yield* CoinAdmin
 
-const ListCoinsQuery = Schema.Struct({
-  status: Schema.optional(Schema.Literals(["active", "inactive"]))
-})
+        return yield* admin.setStatus(params.cmcId, payload.status, payload.reason)
+      }).pipe(Effect.catchTags(writeErrors))
+  }))
 
-const ListingPath = Schema.Struct({ cmcId: CmcIdFromString, exchange: Schema.String })
+const ExchangesLive = HttpApiBuilder.group(Api, "Exchanges", (handlers) =>
+  handlers.handleAll({
+    listExchanges: () => listExchanges(db).pipe(Effect.catchTags(readErrors)),
+    getExchange: ({ params }) =>
+      Effect.gen(function*() {
+        const exchange = yield* slugToExchange(params.exchange)
 
-const ListingPatchBody = Schema.Struct({
-  enabled: Schema.optional(Schema.Boolean),
-  alternateSymbol: Schema.optional(AlternateSymbol)
-})
+        return yield* getExchange(db, exchange)
+      }).pipe(Effect.catchTags(readErrors))
+  }))
 
-const ListListingsQuery = Schema.Struct({
-  cmcId: Schema.optional(CmcIdFromString),
-  exchange: Schema.optional(Schema.String),
-  enabled: Schema.optional(Schema.Literals(["true", "false"]))
-})
+const ListingsLive = HttpApiBuilder.group(Api, "Listings", (handlers) =>
+  handlers.handleAll({
+    listListings: ({ query }) =>
+      Effect.gen(function*() {
+        const filter: ListListingsFilter = {
+          cmcId: query.cmcId,
+          enabled: query.enabled === undefined ? undefined : query.enabled === "true"
+        }
 
-const ChainBody = Schema.Struct({ code: Schema.NonEmptyString, name: Schema.NonEmptyString })
+        const exchange = query.exchange === undefined
+          ? undefined
+          : yield* slugToExchange(query.exchange)
 
-const ListingChainPath = Schema.Struct({
-  cmcId: CmcIdFromString,
-  exchange: Schema.String
-})
+        return yield* listListings(db, { ...filter, exchange })
+      }).pipe(Effect.catchTags(readErrors)),
+    patchListing: ({ params, payload }) =>
+      Effect.gen(function*() {
+        if (payload.enabled === undefined && payload.alternateSymbol === undefined) {
+          return yield* Effect.fail(
+            new InvalidCoinError({ message: "PATCH /listings: nothing to update" })
+          )
+        }
 
-const UpsertListingChainBody = Schema.Struct({
-  chainCode: Schema.NonEmptyString,
-  exchangeChainCode: Schema.NonEmptyString,
-  exchangeChainName: Schema.String,
-  withdrawEnabled: Schema.Boolean,
-  depositEnabled: Schema.Boolean
-})
+        const exchange = yield* slugToExchange(params.exchange)
 
-const UpdateListingChainBody = Schema.Struct({
-  chainCode: Schema.NonEmptyString,
-  withdrawEnabled: Schema.Boolean,
-  depositEnabled: Schema.Boolean
-})
+        if (payload.enabled !== undefined) {
+          yield* setListingEnabled(db, params.cmcId, exchange, payload.enabled)
+        }
 
-const mapDecodeError = (operation: string) => <A, E, R>(
-  self: Effect.Effect<A, E, R>
-): Effect.Effect<A, InvalidCoinError, R> =>
-  Effect.mapError(self, (cause) => new InvalidCoinError({ message: `${operation}: ${describeCause(cause)}` }))
+        if (payload.alternateSymbol !== undefined) {
+          yield* setAlternateSymbol(db, params.cmcId, exchange, payload.alternateSymbol)
+        }
 
-const errorJson = (status: 400 | 404 | 503, message: string) =>
-  HttpServerResponse.json({ error: message }, { status })
+        return yield* getListing(db, params.cmcId, exchange)
+      }).pipe(Effect.catchTags(writeErrors))
+  }))
 
-const apiErrorResponse = Match.type<ApiError | HttpBody.HttpBodyError>().pipe(
-  Match.tag("InvalidCoinError", (error) => errorJson(400, error.message)),
-  Match.tag("CoinNotFound", (error) => errorJson(404, error.message)),
-  Match.tag("StoreUnavailable", () => errorJson(503, "store unavailable")),
-  Match.tag("HttpBodyError", (error) => Effect.fail(error)),
-  Match.exhaustive
+const ChainsLive = HttpApiBuilder.group(Api, "Chains", (handlers) =>
+  handlers.handleAll({
+    listChains: () => listChains(db).pipe(Effect.catchTags(readErrors)),
+    createChain: ({ payload }) =>
+      Effect.gen(function*() {
+        const chain = yield* parseChain({ code: payload.code, name: payload.name })
+
+        return yield* upsertChain(db, chain)
+      }).pipe(Effect.catchTags(readErrors)),
+    listListingChains: ({ params }) =>
+      Effect.gen(function*() {
+        const exchange = yield* slugToExchange(params.exchange)
+
+        return yield* listListingChains(db, params.cmcId, exchange)
+      }).pipe(Effect.catchTags(writeErrors)),
+    upsertListingChain: ({ params, payload }) =>
+      Effect.gen(function*() {
+        const exchange = yield* slugToExchange(params.exchange)
+
+        return yield* upsertListingChain(db, {
+          cmcId: params.cmcId,
+          exchange,
+          chainCode: payload.chainCode,
+          exchangeChainCode: payload.exchangeChainCode,
+          exchangeChainName: payload.exchangeChainName,
+          withdrawEnabled: payload.withdrawEnabled,
+          depositEnabled: payload.depositEnabled
+        })
+      }).pipe(Effect.catchTags(writeErrors)),
+    updateListingChainFlags: ({ params, payload }) =>
+      Effect.gen(function*() {
+        const exchange = yield* slugToExchange(params.exchange)
+
+        return yield* updateListingChainFlags(db, {
+          cmcId: params.cmcId,
+          exchange,
+          chainCode: payload.chainCode,
+          exchangeChainCode: "",
+          exchangeChainName: "",
+          withdrawEnabled: payload.withdrawEnabled,
+          depositEnabled: payload.depositEnabled
+        })
+      }).pipe(Effect.catchTags(writeErrors))
+  }))
+
+export const ApiGroupsLive = Layer.mergeAll(CoinsLive, ExchangesLive, ListingsLive, ChainsLive)
+
+// HttpApi routes + Scalar docs + OpenAPI JSON in one router layer. The docs
+// and JSON routes live outside the Api groups, so they stay out of the
+// generated document itself.
+export const ApiRouterLive = HttpApiBuilder.layer(Api, { openapiPath: "/openapi.json" }).pipe(
+  Layer.provide(ApiGroupsLive),
+  Layer.provide(HttpApiScalar.layer(Api))
 )
 
-const catchApiErrors = <E extends ApiError | HttpBody.HttpBodyError, R>(
-  self: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>
-) => Effect.matchEffect(self, { onFailure: apiErrorResponse, onSuccess: Effect.succeed })
-
-const respondCoin = HttpServerResponse.schemaJson(Cryptocurrency)
-
-const respondCoins = HttpServerResponse.schemaJson(Schema.Array(Cryptocurrency))
-
-const respondExchanges = HttpServerResponse.schemaJson(Schema.Array(ExchangeInfo))
-
-const respondListings = HttpServerResponse.schemaJson(Schema.Array(Listing))
-
-const respondChains = HttpServerResponse.schemaJson(Schema.Array(Chain))
-
-const respondListingChains = HttpServerResponse.schemaJson(Schema.Array(ListingChain))
-
-const resolveExchange = (slug: string): Effect.Effect<Exchange, InvalidCoinError> => slugToExchange(slug)
-
-const listCoinsRoute = HttpRouter.route(
-  "GET",
-  "/coins",
-  Effect.gen(function*() {
-    const query = yield* HttpRouter.schemaParams(ListCoinsQuery).pipe(mapDecodeError("GET /coins query"))
-    const admin = yield* CoinAdmin
-    const coins = yield* admin.listCoins(query.status)
-
-    return yield* respondCoins(coins)
-  }).pipe(catchApiErrors)
-)
-
-const upsertCoinRoute = HttpRouter.route(
-  "PUT",
-  "/coins/:cmcId",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(CmcIdPath).pipe(mapDecodeError("PUT /coins path"))
-
-    const body = yield* HttpServerRequest.schemaBodyJson(UpsertCoinBody).pipe(
-      mapDecodeError("PUT /coins body")
-    )
-
-    const admin = yield* CoinAdmin
-
-    const coin = yield* admin.upsertCoin({
-      cmcId: path.cmcId,
-      symbol: body.symbol,
-      name: body.name,
-      slug: body.slug,
-      logo: body.logo
-    })
-
-    return yield* respondCoin(coin)
-  }).pipe(catchApiErrors)
-)
-
-const setCoinStatusRoute = HttpRouter.route(
-  "PATCH",
-  "/coins/:cmcId/status",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(CmcIdPath).pipe(mapDecodeError("PATCH /coins path"))
-
-    const body = yield* HttpServerRequest.schemaBodyJson(CoinStatusBody).pipe(
-      mapDecodeError("PATCH /coins body")
-    )
-
-    const admin = yield* CoinAdmin
-    const coin = yield* admin.setStatus(path.cmcId, body.status, body.reason)
-
-    return yield* respondCoin(coin)
-  }).pipe(catchApiErrors)
-)
-
-const listExchangesRoute = HttpRouter.route(
-  "GET",
-  "/exchanges",
-  Effect.gen(function*() {
-    const rows = yield* listExchanges(db)
-
-    return yield* respondExchanges(rows)
-  }).pipe(catchApiErrors)
-)
-
-const getExchangeRoute = HttpRouter.route(
-  "GET",
-  "/exchanges/:exchange",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(Schema.Struct({ exchange: Schema.String })).pipe(
-      mapDecodeError("GET /exchanges path")
-    )
-
-    const exchange = yield* resolveExchange(path.exchange)
-    const row = yield* getExchange(db, exchange)
-
-    return yield* HttpServerResponse.schemaJson(ExchangeInfo)(row)
-  }).pipe(catchApiErrors)
-)
-
-const listListingsRoute = HttpRouter.route(
-  "GET",
-  "/listings",
-  Effect.gen(function*() {
-    const query = yield* HttpRouter.schemaParams(ListListingsQuery).pipe(mapDecodeError("GET /listings query"))
-
-    const filter: ListListingsFilter = {
-      cmcId: query.cmcId,
-      enabled: query.enabled === undefined ? undefined : query.enabled === "true"
-    }
-
-    const exchange = query.exchange === undefined
-      ? undefined
-      : yield* resolveExchange(query.exchange)
-
-    const rows = yield* listListings(db, { ...filter, exchange })
-
-    return yield* respondListings(rows)
-  }).pipe(catchApiErrors)
-)
-
-const patchListingRoute = HttpRouter.route(
-  "PATCH",
-  "/listings/:cmcId/:exchange",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(ListingPath).pipe(mapDecodeError("PATCH /listings path"))
-
-    const body = yield* HttpServerRequest.schemaBodyJson(ListingPatchBody).pipe(
-      mapDecodeError("PATCH /listings body")
-    )
-
-    if (body.enabled === undefined && body.alternateSymbol === undefined) {
-      return yield* Effect.fail(
-        new InvalidCoinError({ message: "PATCH /listings: nothing to update" })
-      )
-    }
-
-    const exchange = yield* resolveExchange(path.exchange)
-
-    if (body.enabled !== undefined) {
-      yield* setListingEnabled(db, path.cmcId, exchange, body.enabled)
-    }
-
-    if (body.alternateSymbol !== undefined) {
-      yield* setAlternateSymbol(db, path.cmcId, exchange, body.alternateSymbol)
-    }
-
-    const listing = yield* getListing(db, path.cmcId, exchange)
-
-    return yield* HttpServerResponse.schemaJson(Listing)(listing)
-  }).pipe(catchApiErrors)
-)
-
-const listChainsRoute = HttpRouter.route(
-  "GET",
-  "/chains",
-  Effect.gen(function*() {
-    const rows = yield* listChains(db)
-
-    return yield* respondChains(rows)
-  }).pipe(catchApiErrors)
-)
-
-const postChainRoute = HttpRouter.route(
-  "POST",
-  "/chains",
-  Effect.gen(function*() {
-    const body = yield* HttpServerRequest.schemaBodyJson(ChainBody).pipe(mapDecodeError("POST /chains body"))
-    const chain = yield* parseChain({ code: body.code, name: body.name })
-    const persisted = yield* upsertChain(db, chain)
-
-    return yield* HttpServerResponse.schemaJson(Chain)(persisted, { status: 201 })
-  }).pipe(catchApiErrors)
-)
-
-const listListingChainsRoute = HttpRouter.route(
-  "GET",
-  "/listings/:cmcId/:exchange/chains",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(ListingChainPath).pipe(
-      mapDecodeError("GET /listings chains path")
-    )
-
-    const exchange = yield* resolveExchange(path.exchange)
-    const rows = yield* listListingChains(db, path.cmcId, exchange)
-
-    return yield* respondListingChains(rows)
-  }).pipe(catchApiErrors)
-)
-
-const postListingChainRoute = HttpRouter.route(
-  "POST",
-  "/listings/:cmcId/:exchange/chains",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(ListingChainPath).pipe(
-      mapDecodeError("POST /listings chains path")
-    )
-
-    const body = yield* HttpServerRequest.schemaBodyJson(UpsertListingChainBody).pipe(
-      mapDecodeError("POST /listings chains body")
-    )
-
-    const exchange = yield* resolveExchange(path.exchange)
-
-    const persisted = yield* upsertListingChain(db, {
-      cmcId: path.cmcId,
-      exchange,
-      chainCode: body.chainCode,
-      exchangeChainCode: body.exchangeChainCode,
-      exchangeChainName: body.exchangeChainName,
-      withdrawEnabled: body.withdrawEnabled,
-      depositEnabled: body.depositEnabled
-    })
-
-    return yield* HttpServerResponse.schemaJson(ListingChain)(persisted, { status: 201 })
-  }).pipe(catchApiErrors)
-)
-
-const patchListingChainRoute = HttpRouter.route(
-  "PATCH",
-  "/listings/:cmcId/:exchange/chains",
-  Effect.gen(function*() {
-    const path = yield* HttpRouter.schemaPathParams(ListingChainPath).pipe(
-      mapDecodeError("PATCH /listings chains path")
-    )
-
-    const body = yield* HttpServerRequest.schemaBodyJson(UpdateListingChainBody).pipe(
-      mapDecodeError("PATCH /listings chains body")
-    )
-
-    const exchange = yield* resolveExchange(path.exchange)
-
-    const persisted = yield* updateListingChainFlags(db, {
-      cmcId: path.cmcId,
-      exchange,
-      chainCode: body.chainCode,
-      exchangeChainCode: "",
-      exchangeChainName: "",
-      withdrawEnabled: body.withdrawEnabled,
-      depositEnabled: body.depositEnabled
-    })
-
-    return yield* HttpServerResponse.schemaJson(ListingChain)(persisted)
-  }).pipe(catchApiErrors)
-)
-
-export const RoutesLive = HttpRouter.addAll([
-  listCoinsRoute,
-  upsertCoinRoute,
-  setCoinStatusRoute,
-  listExchangesRoute,
-  getExchangeRoute,
-  listListingsRoute,
-  patchListingRoute,
-  listChainsRoute,
-  postChainRoute,
-  listListingChainsRoute,
-  postListingChainRoute,
-  patchListingChainRoute
-])
+// Back-compat alias: the previous hand-wired `HttpRouter` route list.
+// Prefer `ApiRouterLive` (or `Api` + `ApiGroupsLive`) for new wiring.
+export const RoutesLive = ApiRouterLive

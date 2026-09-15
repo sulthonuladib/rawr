@@ -1,26 +1,14 @@
 import { NodeHttpServer } from "@effect/platform-node"
-import { Effect, Layer, Schema } from "effect"
-import { HttpBody, HttpClient, HttpClientResponse, HttpRouter } from "effect/unstable/http"
+import { Effect, Layer, Match, Schema } from "effect"
+import { HttpBody, HttpClient, HttpRouter } from "effect/unstable/http"
+import { HttpApiClient } from "effect/unstable/httpapi"
 import { afterAll, describe, expect, it } from "vitest"
-import { CmcId } from "@rawr/domain"
-import { Cryptocurrency } from "./cryptocurrency.js"
+import { AlternateSymbol, CmcId, Symbol } from "@rawr/domain"
+import { Api } from "./api.js"
 import { db, pool } from "./db.js"
-import { ExchangeInfo } from "./exchange.js"
 import { insertCrypto, insertListing } from "./fixtures.js"
-import { Listing } from "./listings.js"
-import { Chain, ListingChain } from "@rawr/domain"
 import { RoutesLive } from "./routes.js"
 import { CoinAdmin } from "./service.js"
-
-const CoinsBody = Schema.Array(Cryptocurrency)
-
-const ExchangesBody = Schema.Array(ExchangeInfo)
-
-const ListingsBody = Schema.Array(Listing)
-
-const ChainsBody = Schema.Array(Chain)
-
-const ListingChainsBody = Schema.Array(ListingChain)
 
 const ErrorBody = Schema.Struct({ error: Schema.String })
 
@@ -48,34 +36,45 @@ const runApi = <A, E>(
     )
   )
 
-const getJson = <S extends Schema.Constraint & { readonly DecodingServices: never }>(
-  path: string,
-  schema: S
-): Promise<{ readonly status: number; readonly body: S["Type"] }> =>
+const apiClientEffect = HttpApiClient.make(Api)
+
+type ApiClient = Effect.Success<typeof apiClientEffect>
+
+const runClient = <A, E>(call: (client: ApiClient) => Effect.Effect<A, E>): Promise<A> =>
+  runApi(Effect.flatMap(apiClientEffect, call))
+
+const getRaw = (path: string): Promise<{ readonly status: number; readonly text: string }> =>
   runApi(
     Effect.gen(function*() {
       const response = yield* HttpClient.get(path)
-      const body = yield* HttpClientResponse.schemaBodyJson(schema)(response)
+      const text = yield* response.text
 
-      return { status: response.status, body }
+      return { status: response.status, text }
     })
   )
 
-const sendJson = <S extends Schema.Constraint & { readonly DecodingServices: never }>(
+const sendRaw = (
   method: "POST" | "PUT" | "PATCH",
   path: string,
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- test helper forwards arbitrary JSON fixtures; routes decode below.
-  payload: unknown,
-  schema: S
-): Promise<{ readonly status: number; readonly body: S["Type"] }> =>
+  payload: unknown
+): Promise<{ readonly status: number; readonly text: string }> =>
   runApi(
     Effect.gen(function*() {
       const response = yield* senders[method](path, { body: HttpBody.jsonUnsafe(payload) })
-      const body = yield* HttpClientResponse.schemaBodyJson(schema)(response)
+      const text = yield* response.text
 
-      return { status: response.status, body }
+      return { status: response.status, text }
     })
   )
+
+const errorMessage = (text: string): string => {
+  const json: unknown = JSON.parse(text)
+
+  return Schema.decodeUnknownSync(ErrorBody)(json).error
+}
+
+const symbolOf = (symbol: string) => Schema.decodeUnknownSync(Symbol)(symbol)
 
 afterAll(async () => {
   await pool.end()
@@ -85,110 +84,145 @@ describe("coin routes", () => {
   it("lists active coins", async () => {
     await Effect.runPromise(insertCrypto(db, Schema.decodeUnknownSync(CmcId)(926001), "TSTH"))
 
-    const { status, body } = await getJson("/coins?status=active", CoinsBody)
+    const body = await runClient((client) => client.Coins.listCoins({ query: { status: "active" } }))
 
-    expect(status).toBe(200)
     expect(body.map((coin) => coin.cmcId)).toContain(926001)
   })
 
-  it("rejects an unknown status filter", async () => {
-    const { status, body } = await getJson("/coins?status=bogus", ErrorBody)
+  it("upserts a coin over PUT", async () => {
+    const cmcId = Schema.decodeUnknownSync(CmcId)(926002)
 
-    expect(status).toBe(400)
-    expect(body.error).toContain("GET /coins query")
+    const first = await runClient((client) =>
+      client.Coins.upsertCoin({
+        params: { cmcId },
+        payload: { symbol: symbolOf("TSTH2"), name: "Http Two", slug: "http-two", logo: "" }
+      })
+    )
+
+    expect(first.symbol).toBe("TSTH2")
+
+    const second = await runClient((client) =>
+      client.Coins.upsertCoin({
+        params: { cmcId },
+        payload: { symbol: symbolOf("TSTH2"), name: "Http Two v2", slug: "http-two", logo: "" }
+      })
+    )
+
+    expect(second.name).toBe("Http Two v2")
   })
 
-  it("upserts a coin over PUT", async () => {
-    const first = await sendJson("PUT", "/coins/926002", {
-      symbol: "TSTH2",
-      name: "Http Two",
-      slug: "http-two",
-      logo: ""
-    }, Cryptocurrency)
+  it("rejects an unknown status filter", async () => {
+    const { status } = await getRaw("/coins?status=bogus")
 
-    expect(first.status).toBe(200)
-    expect(first.body.symbol).toBe("TSTH2")
-
-    const second = await sendJson("PUT", "/coins/926002", {
-      symbol: "TSTH2",
-      name: "Http Two v2",
-      slug: "http-two",
-      logo: ""
-    }, Cryptocurrency)
-
-    expect(second.status).toBe(200)
-    expect(second.body.name).toBe("Http Two v2")
+    expect(status).toBe(400)
   })
 
   it("rejects a non-numeric cmcId", async () => {
-    const { status } = await sendJson("PUT", "/coins/abc", {
+    const { status } = await sendRaw("PUT", "/coins/abc", {
       symbol: "X",
       name: "X",
       slug: "x",
       logo: ""
-    }, ErrorBody)
+    })
 
     expect(status).toBe(400)
+  })
+
+  it("rejects zero and negative cmcIds", async () => {
+    const zero = await sendRaw("PUT", "/coins/0", {
+      symbol: "X",
+      name: "X",
+      slug: "x",
+      logo: ""
+    })
+
+    expect(zero.status).toBe(400)
+
+    const negative = await sendRaw("PUT", "/coins/-7", {
+      symbol: "X",
+      name: "X",
+      slug: "x",
+      logo: ""
+    })
+
+    expect(negative.status).toBe(400)
   })
 
   it("changes status over PATCH", async () => {
-    await sendJson("PUT", "/coins/926003", {
-      symbol: "TSTH3",
-      name: "Http Three",
-      slug: "http-three",
-      logo: ""
-    }, Cryptocurrency)
+    const cmcId = Schema.decodeUnknownSync(CmcId)(926003)
+    await runClient((client) =>
+      client.Coins.upsertCoin({
+        params: { cmcId },
+        payload: { symbol: symbolOf("TSTH3"), name: "Http Three", slug: "http-three", logo: "" }
+      })
+    )
 
-    const patched = await sendJson("PATCH", "/coins/926003/status", {
-      status: "inactive",
-      reason: "route test"
-    }, Cryptocurrency)
+    const patched = await runClient((client) =>
+      client.Coins.setCoinStatus({
+        params: { cmcId },
+        payload: { status: "inactive", reason: "route test" }
+      })
+    )
 
-    expect(patched.status).toBe(200)
-    expect(patched.body.status).toBe("inactive")
-    expect(patched.body.reason).toBe("route test")
+    expect(patched.status).toBe("inactive")
+    expect(patched.reason).toBe("route test")
   })
 
   it("rejects a malformed status body", async () => {
-    const { status, body } = await sendJson("PATCH", "/coins/926003/status", {
+    const { status } = await sendRaw("PATCH", "/coins/926003/status", {
       status: "archived"
-    }, ErrorBody)
+    })
 
     expect(status).toBe(400)
-    expect(body.error).toContain("PATCH /coins body")
   })
 
-  it("returns 404 for a missing coin status change", async () => {
-    const { status, body } = await sendJson("PATCH", "/coins/969999/status", {
+  it("returns the 404 error envelope for a missing coin", async () => {
+    const { status, text } = await sendRaw("PATCH", "/coins/969999/status", {
       status: "inactive",
       reason: "nope"
-    }, ErrorBody)
+    })
 
     expect(status).toBe(404)
-    expect(body.error).toContain("969999")
+    expect(errorMessage(text)).toContain("969999")
+  })
+
+  it("surfaces the 404 envelope through the derived client", async () => {
+    const error = await runClient((client) =>
+      Effect.flip(client.Coins.setCoinStatus({
+        params: { cmcId: Schema.decodeUnknownSync(CmcId)(969998) },
+        payload: { status: "inactive", reason: "nope" }
+      }))
+    )
+
+    expect(error._tag).toBe("NotFound")
+    expect(Match.value(error).pipe(
+      Match.tag("NotFound", (notFound) => notFound.error),
+      Match.orElse(() => "unexpected error tag")
+    )).toContain("969998")
   })
 })
 
 describe("registry reads", () => {
   it("lists exchanges", async () => {
-    const { status, body } = await getJson("/exchanges", ExchangesBody)
+    const body = await runClient((client) => client.Exchanges.listExchanges({}))
 
-    expect(status).toBe(200)
     expect(body).toHaveLength(15)
     expect(body.map((row) => row.slug)).toContain("binance")
   })
 
-  it("reads one exchange", async () => {
-    const { status, body } = await getJson("/exchanges/upbit_usdt", ExchangeInfo)
+  it("reads one exchange by its snake_case slug", async () => {
+    const body = await runClient((client) =>
+      client.Exchanges.getExchange({ params: { exchange: "upbit_usdt" } })
+    )
 
-    expect(status).toBe(200)
     expect(body.slug).toBe("upbit_usdt")
   })
 
-  it("rejects an unknown exchange slug", async () => {
-    const { status } = await getJson("/exchanges/nope", ErrorBody)
+  it("rejects an unknown exchange slug with the error envelope", async () => {
+    const { status, text } = await getRaw("/exchanges/nope")
 
     expect(status).toBe(400)
+    expect(errorMessage(text)).toContain("nope")
   })
 })
 
@@ -201,55 +235,79 @@ describe("listing routes", () => {
 
     // Reset: insertListing is insert-only, so re-enable explicitly to keep
     // this test idempotent across runs against the shared Postgres.
-    await sendJson("PATCH", "/listings/926004/binance", { enabled: true }, Listing)
+    await runClient((client) =>
+      client.Listings.patchListing({ params: { cmcId, exchange: "binance" }, payload: { enabled: true } })
+    )
 
-    const before = await getJson("/listings?cmcId=926004", ListingsBody)
+    const before = await runClient((client) => client.Listings.listListings({ query: { cmcId } }))
 
-    expect(before.status).toBe(200)
-    expect(before.body.map((row) => row.enabled)).toContain(true)
+    expect(before.map((row) => row.enabled)).toContain(true)
 
-    const patched = await sendJson("PATCH", "/listings/926004/binance", { enabled: false }, Listing)
+    const patched = await runClient((client) =>
+      client.Listings.patchListing({ params: { cmcId, exchange: "binance" }, payload: { enabled: false } })
+    )
 
-    expect(patched.status).toBe(200)
-    expect(patched.body.enabled).toBe(false)
+    expect(patched.enabled).toBe(false)
 
-    const after = await getJson("/listings?cmcId=926004&enabled=false", ListingsBody)
+    const after = await runClient((client) =>
+      client.Listings.listListings({ query: { cmcId, enabled: "false" } })
+    )
 
-    expect(after.status).toBe(200)
-    expect(after.body.map((row) => row.exchange)).toContain("binance")
+    expect(after.map((row) => row.exchange)).toContain("binance")
   })
 
-  it("rejects an empty listing patch", async () => {
-    const { status } = await sendJson("PATCH", "/listings/926004/binance", {}, ErrorBody)
+  it("rejects an empty listing patch with the error envelope", async () => {
+    const { status, text } = await sendRaw("PATCH", "/listings/926004/binance", {})
 
     expect(status).toBe(400)
+    expect(errorMessage(text)).toContain("nothing to update")
   })
 
   it("round-trips the alternate symbol", async () => {
-    const patched = await sendJson("PATCH", "/listings/926004/binance", {
-      alternateSymbol: "TSTH4X"
-    }, Listing)
+    const patched = await runClient((client) =>
+      client.Listings.patchListing({
+        params: { cmcId: Schema.decodeUnknownSync(CmcId)(926004), exchange: "binance" },
+        payload: { alternateSymbol: Schema.decodeUnknownSync(AlternateSymbol)("TSTH4X") }
+      })
+    )
 
-    expect(patched.status).toBe(200)
-    expect(patched.body.alternateSymbol).toBe("TSTH4X")
+    expect(patched.alternateSymbol).toBe("TSTH4X")
+  })
+
+  it("patches a listing addressed by its snake_case slug", async () => {
+    const cmcId = Schema.decodeUnknownSync(CmcId)(926006)
+    const cryptoId = await Effect.runPromise(insertCrypto(db, cmcId, "TSTH6"))
+
+    await Effect.runPromise(insertListing(db, cryptoId, "upbitUsdt", true))
+
+    const patched = await runClient((client) =>
+      client.Listings.patchListing({ params: { cmcId, exchange: "upbit_usdt" }, payload: { enabled: false } })
+    )
+
+    expect(patched.exchange).toBe("upbitUsdt")
+    expect(patched.enabled).toBe(false)
   })
 })
 
 describe("chain routes", () => {
   it("creates and lists chains", async () => {
-    const created = await sendJson("POST", "/chains", { code: "TSHTTP", name: "Http Chain" }, Chain)
+    const [created, createdResponse] = await runClient((client) =>
+      client.Chains.createChain({
+        payload: { code: "TSHTTP", name: "Http Chain" },
+        responseMode: "decoded-and-response"
+      })
+    )
 
-    expect(created.status).toBe(201)
-    expect(created.body.code).toBe("TSHTTP")
+    expect(createdResponse.status).toBe(201)
+    expect(created.code).toBe("TSHTTP")
 
-    const { status, body } = await getJson("/chains", ChainsBody)
+    const body = await runClient((client) => client.Chains.listChains({}))
 
-    expect(status).toBe(200)
     expect(body.map((row) => row.code)).toContain("TSHTTP")
   })
 
   it("rejects a bad chain body", async () => {
-    const { status } = await sendJson("POST", "/chains", { code: "" }, ErrorBody)
+    const { status } = await sendRaw("POST", "/chains", { code: "" })
 
     expect(status).toBe(400)
   })
@@ -260,40 +318,82 @@ describe("chain routes", () => {
 
     await Effect.runPromise(insertListing(db, cryptoId, "bybit", true))
 
-    const created = await sendJson("POST", "/listings/926005/bybit/chains", {
-      chainCode: "TSHTTP",
-      exchangeChainCode: "TSHTTP",
-      exchangeChainName: "",
-      withdrawEnabled: true,
-      depositEnabled: true
-    }, ListingChain)
+    const [created, createdResponse] = await runClient((client) =>
+      client.Chains.upsertListingChain({
+        params: { cmcId, exchange: "bybit" },
+        payload: {
+          chainCode: "TSHTTP",
+          exchangeChainCode: "TSHTTP",
+          exchangeChainName: "",
+          withdrawEnabled: true,
+          depositEnabled: true
+        },
+        responseMode: "decoded-and-response"
+      })
+    )
 
-    expect(created.status).toBe(201)
-    expect(created.body.withdrawEnabled).toBe(true)
+    expect(createdResponse.status).toBe(201)
+    expect(created.withdrawEnabled).toBe(true)
 
-    const listed = await getJson("/listings/926005/bybit/chains", ListingChainsBody)
+    const listed = await runClient((client) =>
+      client.Chains.listListingChains({ params: { cmcId, exchange: "bybit" } })
+    )
 
-    expect(listed.status).toBe(200)
-    expect(listed.body.map((row) => row.chainCode)).toContain("TSHTTP")
+    expect(listed.map((row) => row.chainCode)).toContain("TSHTTP")
 
-    const beforeRow = listed.body.find((row) => row.chainCode === "TSHTTP")
+    const beforeRow = listed.find((row) => row.chainCode === "TSHTTP")
 
     expect(beforeRow?.withdrawEnabled).toBe(true)
     expect(beforeRow?.depositEnabled).toBe(true)
 
-    const updated = await sendJson("PATCH", "/listings/926005/bybit/chains", {
-      chainCode: "TSHTTP",
-      withdrawEnabled: false,
-      depositEnabled: true
-    }, ListingChain)
+    const updated = await runClient((client) =>
+      client.Chains.updateListingChainFlags({
+        params: { cmcId, exchange: "bybit" },
+        payload: { chainCode: "TSHTTP", withdrawEnabled: false, depositEnabled: true }
+      })
+    )
 
-    expect(updated.status).toBe(200)
-    expect(updated.body.withdrawEnabled).toBe(false)
+    expect(updated.withdrawEnabled).toBe(false)
 
-    const after = await getJson("/listings/926005/bybit/chains", ListingChainsBody)
-    const afterRow = after.body.find((row) => row.chainCode === "TSHTTP")
+    const after = await runClient((client) =>
+      client.Chains.listListingChains({ params: { cmcId, exchange: "bybit" } })
+    )
+
+    const afterRow = after.find((row) => row.chainCode === "TSHTTP")
 
     expect(afterRow?.withdrawEnabled).toBe(false)
     expect(afterRow?.depositEnabled).toBe(true)
+  })
+})
+
+describe("api docs", () => {
+  it("serves the interactive reference on /docs", async () => {
+    const { status, text } = await getRaw("/docs")
+
+    expect(status).toBe(200)
+    expect(text).toContain("api-reference")
+  })
+
+  it("serves all twelve operations as OpenAPI 3.1 on /openapi.json", async () => {
+    const { status, text } = await getRaw("/openapi.json")
+
+    expect(status).toBe(200)
+
+    const json: unknown = JSON.parse(text)
+
+    const doc = Schema.decodeUnknownSync(Schema.Struct({
+      openapi: Schema.String,
+      paths: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))
+    }))(json)
+
+    expect(doc.openapi).toMatch(/^3\.1/)
+
+    const methods = ["get", "put", "post", "patch", "delete", "options", "head", "trace"]
+
+    const operations = Object.values(doc.paths).flatMap((path) =>
+      Object.keys(path).filter((key) => methods.includes(key))
+    )
+
+    expect(operations).toHaveLength(12)
   })
 })

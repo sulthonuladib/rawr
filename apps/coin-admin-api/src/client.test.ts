@@ -55,4 +55,24 @@ describe("coin admin client", () => {
     expect(error.status).toBeUndefined()
     expect(error.message).toContain("socket hang up")
   })
+
+  it("requests the snake_case slug for special exchanges", async () => {
+    let seenUrl = ""
+
+    const client = makeCoinAdminClient({
+      baseUrl: "http://localhost:4100",
+      fetchFn: (input: string | URL | Request, _init?: RequestInit) => {
+        seenUrl = String(input)
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ slug: "upbit_usdt", name: "Upbit USDT" }), { status: 200 })
+        )
+      }
+    })
+
+    const exchange = await Effect.runPromise(client.getExchange("upbitUsdt"))
+
+    expect(seenUrl).toBe("http://localhost:4100/exchanges/upbit_usdt")
+    expect(exchange.slug).toBe("upbit_usdt")
+  })
 })
