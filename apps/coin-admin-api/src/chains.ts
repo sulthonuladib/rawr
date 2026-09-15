@@ -79,10 +79,12 @@ const resolveListingId = (
           message: `${operation}: postgres unavailable for cmcId ${cmcId} on ${exchange} (${describeCause(cause)})`
         })
     })
+
     const row = yield* firstRowOr(
       rows,
       () => new CoinNotFound({ cmcId, message: `${operation}: no listing for cmcId ${cmcId} on ${exchange}` })
     )
+
     return row.id
   })
 
@@ -97,10 +99,12 @@ const resolveChainId = (
       catch: (cause) =>
         new StoreUnavailable({ message: `${operation}: postgres unavailable (${describeCause(cause)})` })
     })
+
     const row = yield* firstRowOr(
       rows,
       () => new InvalidCoinError({ message: `${operation}: unknown chain code (${chainCode})` })
     )
+
     return row.id
   })
 
@@ -122,7 +126,9 @@ export const upsertChain = (
       catch: (cause) =>
         new StoreUnavailable({ message: `upsertChain: postgres unavailable (${describeCause(cause)})` })
     })
+
     const row = yield* firstRowOr(rows, () => new StoreUnavailable({ message: `upsertChain: postgres returned no row` }))
+
     return yield* toChain(row)
   })
 
@@ -133,6 +139,7 @@ export const listChains = (db: Db): Effect.Effect<Array<Chain>, StoreUnavailable
       catch: (cause) =>
         new StoreUnavailable({ message: `listChains: postgres unavailable (${describeCause(cause)})` })
     })
+
     return yield* Effect.forEach(rows, toChain)
   })
 
@@ -144,6 +151,7 @@ export const upsertListingChain = (
     const listingId = yield* resolveListingId(db, "upsertListingChain", input.cmcId, input.exchange)
     const chainId = yield* resolveChainId(db, "upsertListingChain", input.chainCode)
     const exchangeChainName = toNullableExchangeChainName(input.exchangeChainName)
+
     const rows = yield* Effect.tryPromise({
       try: () =>
         db
@@ -173,10 +181,12 @@ export const upsertListingChain = (
       catch: (cause) =>
         new StoreUnavailable({ message: `upsertListingChain: postgres unavailable (${describeCause(cause)})` })
     })
+
     const row = yield* firstRowOr(
       rows,
       () => new StoreUnavailable({ message: `upsertListingChain: postgres returned no row` })
     )
+
     return yield* toListingChain({
       chainCode: input.chainCode,
       exchangeChainCode: row.exchangeChainCode,
@@ -193,6 +203,7 @@ export const updateListingChainFlags = (
   Effect.gen(function*() {
     const listingId = yield* resolveListingId(db, "updateListingChainFlags", input.cmcId, input.exchange)
     const chainId = yield* resolveChainId(db, "updateListingChainFlags", input.chainCode)
+
     const rows = yield* Effect.tryPromise({
       try: () =>
         db
@@ -214,6 +225,7 @@ export const updateListingChainFlags = (
           message: `updateListingChainFlags: postgres unavailable (${describeCause(cause)})`
         })
     })
+
     const row = yield* firstRowOr(
       rows,
       () =>
@@ -221,6 +233,7 @@ export const updateListingChainFlags = (
           message: `updateListingChainFlags: no row for cmcId ${input.cmcId} on ${input.exchange} chain ${input.chainCode}`
         })
     )
+
     return yield* toListingChain({
       chainCode: input.chainCode,
       exchangeChainCode: row.exchangeChainCode,
@@ -237,6 +250,7 @@ export const listListingChains = (
 ): Effect.Effect<Array<ListingChain>, CoinNotFound | StoreUnavailable | InvalidCoinError> =>
   Effect.gen(function*() {
     const listingId = yield* resolveListingId(db, "listListingChains", cmcId, exchange)
+
     const rows = yield* Effect.tryPromise({
       try: () =>
         db
@@ -253,6 +267,7 @@ export const listListingChains = (
       catch: (cause) =>
         new StoreUnavailable({ message: `listListingChains: postgres unavailable (${describeCause(cause)})` })
     })
+
     return yield* Effect.forEach(rows, toListingChain)
   })
 

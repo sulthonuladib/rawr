@@ -34,7 +34,9 @@ const resolveCryptocurrencyId = (
           message: `${operation}: postgres unavailable for cmcId ${cmcId} (${describeCause(cause)})`
         })
     })
+
     const row = yield* firstRowOr(rows, () => new CoinNotFound({ cmcId, message: `${operation}: no coin for cmcId ${cmcId}` }))
+
     return row.id
   })
 
@@ -52,10 +54,12 @@ const resolveExchangeId = (
           message: `${operation}: postgres unavailable for exchange ${exchange} (${describeCause(cause)})`
         })
     })
+
     const row = yield* firstRowOr(
       rows,
       () => new StoreUnavailable({ message: `${operation}: missing exchange seed row for ${exchange}` })
     )
+
     return row.id
   })
 

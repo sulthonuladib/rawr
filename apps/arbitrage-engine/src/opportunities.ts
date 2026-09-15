@@ -47,7 +47,9 @@ const resolveCryptocurrencyId = (
           message: `${operation}: postgres unavailable for cmcId ${cmcId} (${describeCause(cause)})`
         })
     })
+
     const row = yield* firstRowOr(rows, () => new CoinNotFound({ cmcId, message: `${operation}: no coin for cmcId ${cmcId}` }))
+
     return row.id
   })
 
@@ -65,10 +67,12 @@ const resolveExchangeId = (
           message: `${operation}: postgres unavailable for exchange ${exchange} (${describeCause(cause)})`
         })
     })
+
     const row = yield* firstRowOr(
       rows,
       () => new StoreUnavailable({ message: `${operation}: missing exchange seed row for ${exchange}` })
     )
+
     return row.id
   })
 
@@ -89,10 +93,12 @@ export const saveOpportunity = (
     }
 
     const cryptocurrencyId = yield* resolveCryptocurrencyId(db, "saveOpportunity", opportunity.cmcId)
+
     const [buyExchangeId, sellExchangeId] = yield* Effect.all([
       resolveExchangeId(db, "saveOpportunity", opportunity.buyExchange),
       resolveExchangeId(db, "saveOpportunity", opportunity.sellExchange)
     ])
+
     yield* Effect.tryPromise({
       try: () =>
         db.insert(exchangeOpportunities).values({
@@ -175,6 +181,7 @@ export const listOpportunities = (
           slugToExchange(buySlug),
           slugToExchange(sellSlug)
         ])
+
         const opportunity = yield* parseOpportunity({
           symbol: row.symbol,
           cmcId,
@@ -186,6 +193,7 @@ export const listOpportunities = (
           sellAmount: row.sellAmount,
           profitPercentage: String(row.profitPercentage)
         })
+
         return { opportunity, expiredAt: row.expiredAt }
       }))
   })
