@@ -16,6 +16,9 @@ export default {
     // Third-party / generated: never lint as owned source.
     "repos/**",
     "dist/**",
+    // Legacy exchange-sender-websocket templates, vendored verbatim as untyped
+    // JS reference (missing types and deps are expected).
+    "apps/orderbook-crawler/src/workers/templates/**",
     "tools/oxlint/anti-slop/**",
   ],
   jsPlugins: [
