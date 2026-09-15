@@ -16,8 +16,8 @@ afterAll(async () => {
 
 describe("exchange snapshots", () => {
   it("persists a snapshot without error", async () => {
-    const cryptoId = await Effect.runPromise(insertCrypto(cmcId, "TST3"))
-    await Effect.runPromise(insertListing(cryptoId, "binance", true))
+    const cryptoId = await Effect.runPromise(insertCrypto(db, cmcId, "TST3"))
+    await Effect.runPromise(insertListing(db, cryptoId, "binance", true))
 
     const tick = await Effect.runPromise(
       parseOrderbookTick({
