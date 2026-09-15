@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Project: rawr — crypto arbitrage signals across 15 exchanges.
+  Project: rawr — crypto arbitrage signals.
   Stack: effect (v4 RC line) + @effect/platform-node (+-shared) + @effect/sql-pg,
     Schema at all edges; typescript native (tsgo); drizzle-orm + drizzle-kit,
     Postgres; pnpm + node; Redis + RabbitMQ behind ports.

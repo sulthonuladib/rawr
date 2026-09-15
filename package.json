@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Crypto arbitrage signals across 15 exchanges — Effect monorepo",
+  "description": "Crypto arbitrage — Effect monorepo",
   "engines": {
     "node": "^24"
   },
