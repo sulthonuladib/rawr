@@ -81,9 +81,11 @@ export {
 
 export type { RelayOutboxOptions } from "./relay.js"
 
-export { RoutesLive } from "./routes.js"
+export { Api, BadRequestError, NotFoundError, UnavailableError } from "./api.js"
 
-export type { ApiError } from "./routes.js"
+export type { ApiError, BadRequest, NotFound, Unavailable } from "./api.js"
+
+export { ApiGroupsLive, ApiRouterLive, RoutesLive } from "./routes.js"
 
 export { AdminApiLive } from "./server.js"
 
