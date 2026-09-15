@@ -2,7 +2,6 @@ import { Effect, Schema } from "effect"
 import { afterAll, describe, expect, it } from "vitest"
 import { CmcId } from "@rawr/domain"
 import {
-  getTransferSpeed,
   listChains,
   listListingChains,
   updateListingChainFlags,
@@ -42,7 +41,7 @@ describe("chain registry", () => {
 })
 
 describe("listing chains", () => {
-  it("upserts flags, updates them, and derives transfer speed", async () => {
+  it("upserts flags, updates them, and lists raw flags", async () => {
     const cryptoId = await Effect.runPromise(insertCrypto(cmcId, "TST"))
     await Effect.runPromise(insertListing(cryptoId, "binance", true))
 
@@ -62,7 +61,13 @@ describe("listing chains", () => {
     )
 
     expect(upserted.withdrawEnabled).toBe(true)
-    expect(await Effect.runPromise(getTransferSpeed(db, cmcId, "binance"))).toBe("available")
+    expect(upserted.depositEnabled).toBe(true)
+
+    const listedAfterUpsert = await Effect.runPromise(listListingChains(db, cmcId, "binance"))
+    const upsertedRow = listedAfterUpsert.find((row) => row.chainCode === "TSBTC")
+
+    expect(upsertedRow?.withdrawEnabled).toBe(true)
+    expect(upsertedRow?.depositEnabled).toBe(true)
 
     const updated = await Effect.runPromise(
       updateListingChainFlags(db, {
@@ -77,20 +82,25 @@ describe("listing chains", () => {
     )
 
     expect(updated.withdrawEnabled).toBe(false)
-    expect(await Effect.runPromise(getTransferSpeed(db, cmcId, "binance"))).toBe("unavailable")
+    expect(updated.depositEnabled).toBe(true)
 
     const rows = await Effect.runPromise(listListingChains(db, cmcId, "binance"))
+    const updatedRow = rows.find((row) => row.chainCode === "TSBTC")
 
+    expect(updatedRow?.withdrawEnabled).toBe(false)
+    expect(updatedRow?.depositEnabled).toBe(true)
     expect(rows.map((row) => row.chainCode)).toContain("TSBTC")
   })
 
-  it("reports unknown speed for a listing with no chains", async () => {
+  it("returns no rows for a listing with no chains", async () => {
     const otherId = Schema.decodeUnknownSync(CmcId)(910002)
 
     const cryptoId = await Effect.runPromise(insertCrypto(otherId, "TS2"))
     await Effect.runPromise(insertListing(cryptoId, "bybit", true))
 
-    expect(await Effect.runPromise(getTransferSpeed(db, otherId, "bybit"))).toBe("unknown")
+    const rows = await Effect.runPromise(listListingChains(db, otherId, "bybit"))
+
+    expect(rows).toEqual([])
   })
 
   it("fails typed on an unknown chain code", async () => {

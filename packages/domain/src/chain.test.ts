@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
-import { deriveTransferSpeed, parseChain, parseListingChain } from "./chain.js"
+import { parseChain, parseListingChain } from "./chain.js"
 
 describe("parseChain", () => {
   it("decodes a valid chain", async () => {
@@ -50,36 +50,3 @@ describe("parseListingChain", () => {
   })
 })
 
-describe("deriveTransferSpeed", () => {
-  it("reports unknown when there are no chains", () => {
-    expect(deriveTransferSpeed([])).toBe("unknown")
-  })
-
-  it("reports available when any chain is fully enabled", async () => {
-    const chains = await Effect.runPromise(
-      Effect.forEach(
-        [
-          { chainCode: "BTC", exchangeChainCode: "BTC", exchangeChainName: "", withdrawEnabled: false, depositEnabled: false },
-          { chainCode: "ETH", exchangeChainCode: "ETH", exchangeChainName: "", withdrawEnabled: true, depositEnabled: true }
-        ],
-        parseListingChain
-      )
-    )
-
-    expect(deriveTransferSpeed(chains)).toBe("available")
-  })
-
-  it("reports unavailable when all withdrawals are disabled", async () => {
-    const chains = await Effect.runPromise(
-      Effect.forEach(
-        [
-          { chainCode: "BTC", exchangeChainCode: "BTC", exchangeChainName: "", withdrawEnabled: false, depositEnabled: true },
-          { chainCode: "TRX", exchangeChainCode: "TRX", exchangeChainName: "", withdrawEnabled: false, depositEnabled: false }
-        ],
-        parseListingChain
-      )
-    )
-
-    expect(deriveTransferSpeed(chains)).toBe("unavailable")
-  })
-})
