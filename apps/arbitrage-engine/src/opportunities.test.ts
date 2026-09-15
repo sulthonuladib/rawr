@@ -16,9 +16,9 @@ afterAll(async () => {
 
 describe("exchange opportunities", () => {
   it("lists live opportunities with expiry filtering", async () => {
-    const cryptoId = await Effect.runPromise(insertCrypto(cmcId, "TST3"))
-    await Effect.runPromise(insertListing(cryptoId, "binance", true))
-    await Effect.runPromise(insertListing(cryptoId, "bybit", true))
+    const cryptoId = await Effect.runPromise(insertCrypto(db, cmcId, "TST3"))
+    await Effect.runPromise(insertListing(db, cryptoId, "binance", true))
+    await Effect.runPromise(insertListing(db, cryptoId, "bybit", true))
 
     const live = await Effect.runPromise(
       parseOpportunity({

@@ -43,8 +43,8 @@ describe("chain registry", () => {
 
 describe("listing chains", () => {
   it("upserts flags, updates them, and derives transfer speed", async () => {
-    const cryptoId = await Effect.runPromise(insertCrypto(cmcId, "TST"))
-    await Effect.runPromise(insertListing(cryptoId, "binance", true))
+    const cryptoId = await Effect.runPromise(insertCrypto(db, cmcId, "TST"))
+    await Effect.runPromise(insertListing(db, cryptoId, "binance", true))
 
     const chain = await Effect.runPromise(parseChain({ code: "TSBTC", name: "Test Bitcoin" }))
     await Effect.runPromise(upsertChain(db, chain))
@@ -87,8 +87,8 @@ describe("listing chains", () => {
   it("reports unknown speed for a listing with no chains", async () => {
     const otherId = Schema.decodeUnknownSync(CmcId)(910002)
 
-    const cryptoId = await Effect.runPromise(insertCrypto(otherId, "TS2"))
-    await Effect.runPromise(insertListing(cryptoId, "bybit", true))
+    const cryptoId = await Effect.runPromise(insertCrypto(db, otherId, "TS2"))
+    await Effect.runPromise(insertListing(db, cryptoId, "bybit", true))
 
     expect(await Effect.runPromise(getTransferSpeed(db, otherId, "bybit"))).toBe("unknown")
   })

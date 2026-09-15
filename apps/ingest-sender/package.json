@@ -8,12 +8,14 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "dev": "tsc --watch -p tsconfig.json",
-    "test": "echo \"ok: no tests yet\""
+    "test": "vitest run --exclude '**/dist/**'"
   },
   "dependencies": {
+    "@rawr/coin-admin-api": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

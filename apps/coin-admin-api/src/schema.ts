@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  json,
   pgEnum,
   pgTable,
   text,
@@ -9,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core"
 import type { PgDatabase } from "drizzle-orm/pg-core/db"
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session"
+import type { CoinUpdatedEncoded } from "@rawr/domain"
 
 export const cryptocurrencyStatusEnum = pgEnum("cryptocurrency_status", ["active", "inactive"])
 
@@ -126,13 +128,30 @@ export type ExchangeCryptocurrencyChainRow = typeof exchangeCryptocurrencyChains
 
 export type ExchangeCryptocurrencyChainInsert = typeof exchangeCryptocurrencyChains.$inferInsert
 
+export const coinOutbox = pgTable("coin_outbox", {
+  id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+  cmcId: integer("cmc_id").notNull(),
+  payload: json("payload").$type<CoinUpdatedEncoded>().notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true, mode: "date" }),
+  ...timestamps()
+})
+
+export type CoinOutboxRow = typeof coinOutbox.$inferSelect
+
+export type CoinOutboxInsert = typeof coinOutbox.$inferInsert
+
 export const schema = {
   cryptocurrencies,
   exchanges,
   exchangeCryptocurrencies,
   chains,
   exchangeCryptocurrencyChains,
+  coinOutbox,
   cryptocurrencyStatusEnum
 }
 
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>
+
+export type DbTx = Parameters<Parameters<Db["transaction"]>[0]>[0]
+
+export type DbOrTx = Db | DbTx
