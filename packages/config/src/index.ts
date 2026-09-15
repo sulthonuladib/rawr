@@ -5,8 +5,7 @@ export const packageName = "@rawr/config" as const
 export interface Ports {
   readonly coinAdminApi: number
   readonly tickerCache: number
-  readonly ingestSender: number
-  readonly crawlerMonitor: number
+  readonly orderbookCrawler: number
   readonly arbitrageEngine: number
   readonly gateProxy: number
   readonly signalCard: number
@@ -57,8 +56,7 @@ const coinAdminApiHost = EffectConfig.String("COIN_ADMIN_API_HOST").pipe(
 const ports = EffectConfig.all({
   coinAdminApi: coinAdminApiPort,
   tickerCache: EffectConfig.Port("TICKER_CACHE_PORT").pipe(EffectConfig.withDefault(4101)),
-  ingestSender: EffectConfig.Port("INGEST_SENDER_PORT").pipe(EffectConfig.withDefault(3109)),
-  crawlerMonitor: EffectConfig.Port("CRAWLER_MONITOR_PORT").pipe(EffectConfig.withDefault(5101)),
+  orderbookCrawler: EffectConfig.Port("ORDERBOOK_CRAWLER_PORT").pipe(EffectConfig.withDefault(3109)),
   arbitrageEngine: EffectConfig.Port("ARBITRAGE_ENGINE_PORT").pipe(EffectConfig.withDefault(10100)),
   gateProxy: EffectConfig.Port("GATE_PROXY_PORT").pipe(EffectConfig.withDefault(42169)),
   signalCard: EffectConfig.Port("SIGNAL_CARD_PORT").pipe(EffectConfig.withDefault(5100))

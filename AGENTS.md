@@ -1,5 +1,7 @@
 # AGENTS.md
 
+always execute package specific commands inside its own directory
+
 ### Stack (versions pinned in `pnpm-workspace.yaml` catalog + `infra/compose.yaml` — read them there)
 
 - `effect` (v4 RC line) + `@effect/platform-node`, `@effect/platform-node-shared`, `@effect/sql-pg` (same RC line), `Schema` everywhere at edges
