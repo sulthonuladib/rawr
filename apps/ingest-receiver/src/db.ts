@@ -3,7 +3,7 @@ import pg from "pg"
 import { schema, type Db } from "./schema.js"
 
 export const connectionString =
-  process.env["DATABASE_URL"] ?? "postgres://rawr:rawr@localhost:5432/rawr"
+  process.env["DATABASE_URL"] ?? "postgres://rawr:rawr@localhost:5433/rawr"
 
 export const pool = new pg.Pool({ connectionString })
 

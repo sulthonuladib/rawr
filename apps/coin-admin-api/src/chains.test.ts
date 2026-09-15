@@ -42,8 +42,8 @@ describe("chain registry", () => {
 
 describe("listing chains", () => {
   it("upserts flags, updates them, and lists raw flags", async () => {
-    const cryptoId = await Effect.runPromise(insertCrypto(cmcId, "TST"))
-    await Effect.runPromise(insertListing(cryptoId, "binance", true))
+    const cryptoId = await Effect.runPromise(insertCrypto(db, cmcId, "TST"))
+    await Effect.runPromise(insertListing(db, cryptoId, "binance", true))
 
     const chain = await Effect.runPromise(parseChain({ code: "TSBTC", name: "Test Bitcoin" }))
     await Effect.runPromise(upsertChain(db, chain))
@@ -95,8 +95,8 @@ describe("listing chains", () => {
   it("returns no rows for a listing with no chains", async () => {
     const otherId = Schema.decodeUnknownSync(CmcId)(910002)
 
-    const cryptoId = await Effect.runPromise(insertCrypto(otherId, "TS2"))
-    await Effect.runPromise(insertListing(cryptoId, "bybit", true))
+    const cryptoId = await Effect.runPromise(insertCrypto(db, otherId, "TS2"))
+    await Effect.runPromise(insertListing(db, cryptoId, "bybit", true))
 
     const rows = await Effect.runPromise(listListingChains(db, otherId, "bybit"))
 

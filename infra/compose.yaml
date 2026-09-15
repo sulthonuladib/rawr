@@ -15,7 +15,7 @@ services:
       POSTGRES_PASSWORD: rawr
       POSTGRES_DB: rawr
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -53,8 +53,8 @@ services:
       RABBITMQ_DEFAULT_USER: rawr
       RABBITMQ_DEFAULT_PASS: rawr
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     volumes:
       - rabbitdata:/var/lib/rabbitmq
     healthcheck:

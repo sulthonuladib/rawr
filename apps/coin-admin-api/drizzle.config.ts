@@ -7,6 +7,6 @@ export default defineConfig({
   dbCredentials: {
     url:
       process.env["DATABASE_URL"] ??
-      "postgres://rawr:rawr@localhost:5432/rawr",
+      "postgres://rawr:rawr@localhost:5433/rawr",
   },
 });
