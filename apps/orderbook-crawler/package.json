@@ -1,9 +1,9 @@
 {
-  "name": "@rawr/ingest-sender",
+  "name": "@rawr/orderbook-crawler",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Ingest sender — FiberMap subscribe/unsubscribe on CoinUpdated (delta only)",
+  "description": "Orderbook crawler — supervised per-exchange crawling with manual start/stop",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
@@ -11,7 +11,13 @@
     "test": "vitest run --exclude '**/dist/**'"
   },
   "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/platform-node-shared": "catalog:",
     "@rawr/coin-admin-api": "workspace:*",
+    "@rawr/config": "workspace:*",
+    "@rawr/domain": "workspace:*",
+    "@rawr/messaging": "workspace:*",
+    "@rawr/observability": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
