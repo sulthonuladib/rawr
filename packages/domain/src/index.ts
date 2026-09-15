@@ -21,20 +21,14 @@ export {
   Chain,
   decodeChain,
   decodeListingChain,
-  deriveTransferSpeed,
   encodeChain,
   encodeListingChain,
   ListingChain,
   parseChain,
-  parseListingChain,
-  TransferSpeed
+  parseListingChain
 } from "./chain.js"
 
-export type {
-  ChainEncoded,
-  ListingChainEncoded,
-  TransferSpeedEncoded
-} from "./chain.js"
+export type { ChainEncoded, ListingChainEncoded } from "./chain.js"
 
 export { CoinActive, CoinInactive, CoinStatus } from "./status.js"
 

@@ -4,15 +4,13 @@ import {
   Chain,
   CmcId,
   CoinNotFound,
-  deriveTransferSpeed,
   Exchange,
   exchangeToSlug,
   InvalidCoinError,
   ListingChain,
   parseChain,
   parseListingChain,
-  StoreUnavailable,
-  TransferSpeed
+  StoreUnavailable
 } from "@rawr/domain"
 import type { Db } from "./schema.js"
 import {
@@ -256,16 +254,6 @@ export const listListingChains = (
         new StoreUnavailable({ message: `listListingChains: postgres unavailable (${describeCause(cause)})` })
     })
     return yield* Effect.forEach(rows, toListingChain)
-  })
-
-export const getTransferSpeed = (
-  db: Db,
-  cmcId: CmcId,
-  exchange: Exchange
-): Effect.Effect<TransferSpeed, CoinNotFound | StoreUnavailable | InvalidCoinError> =>
-  Effect.gen(function*() {
-    const listingChains = yield* listListingChains(db, cmcId, exchange)
-    return deriveTransferSpeed(listingChains)
   })
 
 const toNullableExchangeChainName = (exchangeChainName: string): string | null =>

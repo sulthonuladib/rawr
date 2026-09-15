@@ -41,16 +41,3 @@ export const parseListingChain = (
   decodeListingChain(input).pipe(
     Effect.mapError((cause) => new InvalidCoinError({ message: cause.message }))
   )
-
-export const TransferSpeed = Schema.Literals(["available", "unavailable", "unknown"])
-
-export type TransferSpeed = typeof TransferSpeed["Type"]
-
-export type TransferSpeedEncoded = typeof TransferSpeed["Encoded"]
-
-export const deriveTransferSpeed = (chains: ReadonlyArray<ListingChain>): TransferSpeed =>
-  chains.length === 0
-    ? "unknown"
-    : chains.some((chain) => chain.withdrawEnabled && chain.depositEnabled)
-      ? "available"
-      : "unavailable"

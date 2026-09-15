@@ -27,7 +27,6 @@ export type {
 } from "./schema.js"
 
 export {
-  getTransferSpeed,
   listChains,
   listListingChains,
   updateListingChainFlags,
